@@ -30,8 +30,7 @@ struct _SubtitleStore
   GObject parent_instance;
   
   /* instance members */
-  struct SubtitleStoreSpot *spots;
-  guint n_spots;
+  struct SubtitleStoreItem *items;
   gint stamp;
 };
 
@@ -64,6 +63,13 @@ subtitle_store_new();
 void
 subtitle_store_clear_all(SubtitleStore *store);
 
+#define SUBTITLE_STORE_TIME_FROM_CHILDREN 0x1
+
 gboolean
 subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
-		      GtkTreeIter *iter);
+		      guint flags,
+		      GtkTreeIter *parent, GtkTreeIter *iter);
+
+/* Setting iter to NULL removes all items */
+void
+subtitle_store_remove(SubtitleStore *store, GtkTreeIter *iter);

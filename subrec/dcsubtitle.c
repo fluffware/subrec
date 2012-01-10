@@ -477,3 +477,9 @@ dcsubtitle_read(GFile *file, GError **error)
   }
   return sub;
 }
+
+GList *
+dcsubtitle_get_spots(DCSubtitle *sub)
+{
+  return sub->spots;
+}

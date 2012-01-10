@@ -10,30 +10,43 @@ subtitle_store_error_quark()
   return error_quark;
 }
 
+#define ITEM_FLAG_TIME_FROM_CHILDREN 0x100
+#define ITEM_FLAG_SPOT 0x1
+#define ITEM_FLAG_GROUP 0x2
+#define ITEM_FLAG_REEL 0x4
 
-struct SubtitleStoreSpot
+struct SubtitleStoreItem
 {
-  struct SubtitleStoreSpot *next; /* NULL if not linked */
-  struct SubtitleStoreSpot **prevp; /* NULL if not linked */
+  struct SubtitleStoreItem *next; /* NULL if not linked */
+  struct SubtitleStoreItem **prevp; /* NULL if not linked */
+  struct SubtitleStoreItem *parent;
+  struct SubtitleStoreItem *children;
+  guint flags;
   gint64 in_ns;
   gint64 out_ns;
   gchar *text;
 };
 
+typedef struct SubtitleStoreItem SubtitleStoreItem;
+
 static void
-destroy_spot(struct SubtitleStoreSpot *spot)
+destroy_items(SubtitleStoreItem *item);
+
+static void
+destroy_item(SubtitleStoreItem *item)
 {
-  g_free(spot->text);
-  g_free(spot);
+  g_free(item->text);
+  destroy_items(item->children);
+  g_free(item);
 }
 
 static void
-destroy_spots(struct SubtitleStoreSpot *spot)
+destroy_items(SubtitleStoreItem *item)
 {
-  while (spot) {
-    struct SubtitleStoreSpot *next = spot->next;
-    destroy_spot(spot);
-    spot = next;
+  while (item) {
+    SubtitleStoreItem *next = item->next;
+    destroy_item(item);
+    item = next;
   }	  
 }
 
@@ -41,7 +54,7 @@ static void
 subtitle_store_finalize(GObject *object)
 {
   SubtitleStore *store = SUBTITLE_STORE(object);
-  destroy_spots(store->spots);
+  destroy_items(store->items);
 }
 
 
@@ -66,32 +79,98 @@ model_get_column_type(GtkTreeModel *tree_model, gint index_)
   return column_types[index_];
 }
 
+static SubtitleStoreItem *
+find_nth_item(SubtitleStoreItem *item, guint n)
+{
+  while(n-- > 0 && item) item = item->next;
+  return item;
+}
+
 static gboolean
 model_get_iter(GtkTreeModel *tree_model, GtkTreeIter  *iter,GtkTreePath  *path)
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
-  gint pos = gtk_tree_path_get_indices(path)[0];
-  struct SubtitleStoreSpot *spot = store->spots;
-  if (pos >= store->n_spots) return FALSE;
-  while(pos-- > 0) spot = spot->next;
+  gint d = 0;
+  gint depth = gtk_tree_path_get_depth(path);
+  gint *indices = gtk_tree_path_get_indices(path);
+  SubtitleStoreItem *children = store->items;
+  SubtitleStoreItem *child = NULL;;
+  while(d < depth && children) {
+    child = find_nth_item(children, indices[d]);
+    if (child == NULL) INVALID_RET;
+    children = child->children;
+    d++;
+  }
+
+  if (d != depth) INVALID_RET;
+
   iter->stamp = store->stamp;
-  iter->user_data = spot;
+  iter->user_data = child;
   return TRUE;
+}
+
+static gint
+find_item_pos(SubtitleStoreItem *item, SubtitleStoreItem *first)
+{
+  gint pos = 0;
+  while(TRUE) {
+    if (first == item) return pos;
+    pos++;
+    first = first->next;
+  }
+}
+
+static GtkTreePath *
+get_path(SubtitleStore *store, SubtitleStoreItem *item)
+{
+  GtkTreePath *path;
+  path = gtk_tree_path_new();
+  while(item) {
+    gint pos;
+    SubtitleStoreItem *first;
+    if (item->parent) {
+      first = item->parent->children;
+    } else {
+      first = store->items;
+    }
+    pos = find_item_pos(item, first);
+    gtk_tree_path_prepend_index(path, pos);
+    item = item->parent;
+  }
+  return path;
 }
 
 static GtkTreePath *
 model_get_path(GtkTreeModel *tree_model, GtkTreeIter  *iter)
 {
-  gint pos = 0;
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
-  struct SubtitleStoreSpot *spot = iter->user_data;
-  struct SubtitleStoreSpot *s = store->spots;
+  SubtitleStoreItem *item = iter->user_data;
   g_assert(iter->stamp == store->stamp);
-  while(TRUE) {
-    g_assert(s != NULL);
-    if (s == spot) return gtk_tree_path_new_from_indices(pos, -1);
-    s = s->next;
-    pos++;
+
+  return get_path(store, item);
+}
+
+static gint64
+get_in_ns(SubtitleStoreItem *item)
+{
+  if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)
+      && item->children) {
+    return get_in_ns(item->children);
+  } else {
+    return item->in_ns;
+  }
+}
+
+static gint64
+get_out_ns(SubtitleStoreItem *item)
+{
+  if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)
+      && item->children) {
+    SubtitleStoreItem *child = item->children;
+    while(child->next) child = child->next;
+    return get_out_ns(child);
+  } else {
+    return item->out_ns;
   }
 }
 
@@ -100,20 +179,20 @@ model_get_value(GtkTreeModel *tree_model, GtkTreeIter  *iter, gint column,
 		GValue *value)
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
-  struct SubtitleStoreSpot *spot = iter->user_data;
+  SubtitleStoreItem *item = iter->user_data;
   g_assert(iter->stamp == store->stamp);
   switch(column) {
   case SUBTITLE_STORE_COLUMN_IN:
     g_value_init(value, G_TYPE_INT64);
-    g_value_set_int64(value, spot->in_ns);
+    g_value_set_int64(value, get_in_ns(item));
     break;
   case SUBTITLE_STORE_COLUMN_OUT:
     g_value_init(value, G_TYPE_INT64);
-    g_value_set_int64(value, spot->out_ns);
+    g_value_set_int64(value, get_out_ns(item));
     break;
   case SUBTITLE_STORE_COLUMN_TEXT:
     g_value_init(value, G_TYPE_STRING);
-    g_value_set_string(value, spot->text);
+    g_value_set_string(value, item->text);
     break;
   default:
     break;
@@ -124,12 +203,12 @@ static gboolean
 model_iter_next(GtkTreeModel *tree_model, GtkTreeIter  *iter)
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
-  struct SubtitleStoreSpot *spot = iter->user_data;
+  struct SubtitleStoreItem *item = iter->user_data;
   g_assert(iter->stamp == store->stamp);
-  if (!spot->next) {
+  if (!item->next) {
     INVALID_RET;
   }
-  iter->user_data = spot->next;
+  iter->user_data = item->next;
   return TRUE;
 }
   
@@ -138,11 +217,15 @@ model_iter_children(GtkTreeModel *tree_model, GtkTreeIter  *iter,				    GtkTree
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
   if (parent) {
-    INVALID_RET;
-  } else {
-    if (!store->spots) INVALID_RET;
+    SubtitleStoreItem *item = parent->user_data;
+    if (!item->children) INVALID_RET;
     iter->stamp = store->stamp;
-    iter->user_data = store->spots;
+    iter->user_data = item->children;
+    return TRUE;
+  } else {
+    if (!store->items) INVALID_RET;
+    iter->stamp = store->stamp;
+    iter->user_data = store->items;
     return TRUE;
   }
 }
@@ -150,14 +233,30 @@ model_iter_children(GtkTreeModel *tree_model, GtkTreeIter  *iter,				    GtkTree
 static gboolean
 model_iter_has_child(GtkTreeModel *tree_model, GtkTreeIter  *iter)
 {
-  return FALSE;
+  SubtitleStore *store = SUBTITLE_STORE(tree_model);
+  SubtitleStoreItem *item = iter->user_data;
+  g_assert(iter->stamp == store->stamp);
+  return item->children != NULL;
 }
 
 static gint
 model_iter_n_children(GtkTreeModel *tree_model, GtkTreeIter  *iter)
 {
-  if (iter) return 0;
-  else return SUBTITLE_STORE(tree_model)->n_spots;
+  gint n = 0;
+  SubtitleStore *store = SUBTITLE_STORE(tree_model);
+  SubtitleStoreItem *item;
+  if (iter) {
+    item = iter->user_data;
+    g_assert(iter->stamp == store->stamp);
+    item = item->children;
+  } else {
+    item = store->items;
+  }
+  while(item) {
+    n++;
+    item = item->next;
+  }
+  return n;
 }
 
 static gboolean
@@ -165,16 +264,19 @@ model_iter_nth_child(GtkTreeModel *tree_model, GtkTreeIter  *iter,
 		  GtkTreeIter  *parent, gint n)
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
+  SubtitleStoreItem *item;
   if (parent) {
-    INVALID_RET;
+    item = parent->user_data;
+    g_assert(parent->stamp == store->stamp);
+    item = item->children;
   } else {
-    struct SubtitleStoreSpot *spot = store->spots;
-    if (n >= store->n_spots) INVALID_RET;
-    while(n-- > 0) spot = spot->next;
-    iter->stamp = store->stamp;
-    iter->user_data = spot;
-    return TRUE;
+    item = store->items;
   }
+  item = find_nth_item(item, n);
+  if (!item) INVALID_RET;
+  iter->stamp = store->stamp;
+  iter->user_data = item;
+  return TRUE;
 }
 
 static gboolean
@@ -182,7 +284,12 @@ model_iter_parent(GtkTreeModel *tree_model, GtkTreeIter  *iter,
 		  GtkTreeIter  *child)
 {
   SubtitleStore *store = SUBTITLE_STORE(tree_model);
-  INVALID_RET;
+  SubtitleStoreItem *item = child->user_data;
+  g_assert(child->stamp == store->stamp);
+  if (!item->parent) INVALID_RET;
+  iter->stamp = store->stamp;
+  iter->user_data = item->parent;
+  return TRUE;
 }
 
 static void
@@ -226,8 +333,7 @@ subtitle_store_class_init(SubtitleStoreClass *g_class)
 static void
 subtitle_store_init(SubtitleStore *instance)
 {
-  instance->spots = NULL;
-  instance->n_spots = 0;
+  instance->items = NULL;
   instance->stamp = g_random_int() + 48978389;
 }
 
@@ -237,12 +343,12 @@ subtitle_store_new()
   SubtitleStore *store = g_object_new(SUBTITLE_STORE_TYPE, NULL);
   return store;
 }
-
+#if 0
 void
 subtitle_store_clear_all(SubtitleStore *store)
 {
   GtkTreePath *path;
-  destroy_spots(store->spots);
+  destroy_items(store->spots);
   path = gtk_tree_path_new_from_indices(store->n_spots, -1);
   store->spots = NULL;
   store->n_spots = 0;
@@ -251,46 +357,54 @@ subtitle_store_clear_all(SubtitleStore *store)
   }
   gtk_tree_path_free(path);
 }
+#endif
 
 /* Inserts a new spot into the list at the position indicated by the times.
-   Rteurns FALSE if it overlaps with an existing spot */
+   Returns FALSE if it overlaps with an existing spot */
 gboolean
 subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
-		      GtkTreeIter *iter)
+		      guint flags,
+		      GtkTreeIter *parent, GtkTreeIter *iter)
 {
   GtkTreePath *path;
-  gint pos = 0;
   GtkTreeIter iter_local;
-  struct SubtitleStoreSpot *new_spot;
-  struct SubtitleStoreSpot **spotp = &store->spots;
+  SubtitleStoreItem *new_item;
+  SubtitleStoreItem **itemp;
+  SubtitleStoreItem *parent_item = NULL;
+  if (parent) {
+    parent_item = parent->user_data;
+    itemp = &parent_item->children;
+  } else {
+    itemp = &store->items;
+  }
   if (in_ns >= out_ns) return FALSE;
-  while (*spotp) {
-    struct SubtitleStoreSpot *spot = *spotp;
-    if (in_ns < spot->in_ns) {
-      if (out_ns > spot->in_ns) return FALSE;
+  while (*itemp) {
+    struct SubtitleStoreItem *item = *itemp;
+    if (in_ns < item->in_ns) {
+      if (out_ns > item->in_ns) return FALSE;
       break;
     } else {
-      if (in_ns < spot->out_ns) return FALSE;
+      if (in_ns < item->out_ns) return FALSE;
     }
-    spotp = &spot->next;
-    pos++;
+    itemp = &item->next;
   }
-  new_spot = g_new(struct SubtitleStoreSpot, 1);
-  new_spot->in_ns = in_ns;
-  new_spot->out_ns = out_ns;
-  new_spot->text = g_strdup("");
+  new_item = g_new(struct SubtitleStoreItem, 1);
+  new_item->flags = flags;
+  new_item->in_ns = in_ns;
+  new_item->out_ns = out_ns;
+  new_item->text = g_strdup("");
   
-  new_spot->next = *spotp;
-  new_spot->prevp = spotp;
-  if (*spotp) (*spotp)->prevp = &new_spot->next;
-  *spotp = new_spot;
-
-  store->n_spots++;
-  store->stamp++; /* Invalidate previous stamps */
+  new_item->next = *itemp;
+  new_item->prevp = itemp;
+  if (*itemp) (*itemp)->prevp = &new_item->next;
+  *itemp = new_item;
+  new_item->parent = parent_item;
+  new_item->children = NULL;
+  
   if (!iter) iter = &iter_local;
   iter->stamp = store->stamp;
-  iter->user_data = new_spot;
-  path = gtk_tree_path_new_from_indices(pos, -1);
+  iter->user_data = new_item;
+  path = model_get_path(GTK_TREE_MODEL(store), iter);
   gtk_tree_model_row_inserted(GTK_TREE_MODEL(store), path, iter); 
   gtk_tree_path_free(path);
   return TRUE;
@@ -298,3 +412,68 @@ subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
     
 G_DEFINE_TYPE_WITH_CODE(SubtitleStore, subtitle_store, G_TYPE_OBJECT,\
 			G_IMPLEMENT_INTERFACE(GTK_TYPE_TREE_MODEL,model_init))
+
+static void
+unlink_item(SubtitleStoreItem *item)
+{
+  if (item->next) {
+    item->next->prevp = item->prevp;
+  }
+  *item->prevp = item->next;
+}
+
+static void
+remove_item(SubtitleStore *store, GtkTreePath *path, SubtitleStoreItem *item);
+
+static void
+remove_items(SubtitleStore *store, GtkTreePath *path, SubtitleStoreItem *first_child)
+{
+  SubtitleStoreItem *child = first_child;
+  gint64 l  = 0;
+  while(child) {
+    l++;
+    child=child->next;
+  }
+  SubtitleStoreItem **children = g_new(SubtitleStoreItem*, l);
+  child = first_child;
+  l = 0;
+  while(child) {
+    children[l++] = child;
+    gtk_tree_path_next(path);
+    child=child->next;
+  }
+  while(l-- > 0) {
+    gtk_tree_path_prev(path);
+    remove_item(store, path, children[l]);
+  }
+}
+
+static void
+remove_item(SubtitleStore *store, GtkTreePath *path, SubtitleStoreItem *item)
+{
+  if (item->children) {
+    SubtitleStoreItem *child = item->children;
+    gtk_tree_path_down(path);
+    remove_items(store, path, item->children);
+    gtk_tree_path_up(path);
+  }
+  unlink_item(item);
+  destroy_item(item);
+  gtk_tree_model_row_deleted(GTK_TREE_MODEL(store), path);
+  
+}
+
+void
+subtitle_store_remove(SubtitleStore *store, GtkTreeIter *iter)
+{
+  if (iter) {
+    SubtitleStoreItem *item = iter->user_data;
+    GtkTreePath *path = get_path(store, item);
+    remove_item(store, path, item);
+    gtk_tree_path_free(path);
+  } else {
+    GtkTreePath *path = gtk_tree_path_new_from_indices(0, -1);
+    remove_items(store, path, store->items);
+    gtk_tree_path_free(path);
+  }
+}

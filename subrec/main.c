@@ -140,21 +140,31 @@ load_dialog_response(GtkDialog *dialog,
       g_error_free(error);
       return;
     }
+    subtitle_store_remove(app->subtitle_store, NULL);
     {
+      gint64 reel_pos = 0;
+      GtkTreeIter reel_iter;
       GList *reels = composition_playlist_get_reels(app->cpl);
       while (reels) {
 	CompositionPlaylistReel *reel = (CompositionPlaylistReel*)reels->data;
 	GList *assets = reel->assets;
 	g_debug("Reel: %s", reel->id);
 	while(assets) {
+	  GList *spots;
 	  CompositionPlaylistAsset *asset =
 	    (CompositionPlaylistAsset*)assets->data;
 	  if (asset->type == AssetTypeSubtitleTrack) {
+	    gint64 duration;
 	    DCSubtitle *sub;
 	    GFile *file = asset_map_get_file(app->asset_map, asset->id);
 	    gchar *uri = g_file_get_uri(file);
 	    g_debug("Asset: %s File: %s", asset->id, uri);
 	    g_free(uri);
+	    duration = asset->duration * asset->edit_rate.denom * 1000000000LL / asset->edit_rate.num;
+	    subtitle_store_insert(app->subtitle_store,
+				  reel_pos, reel_pos + duration,
+				  0, NULL, &reel_iter);
+	    reel_pos += duration;
 	    sub = dcsubtitle_read(file, &error);
 	    
 	    g_object_unref(file);
@@ -163,6 +173,15 @@ load_dialog_response(GtkDialog *dialog,
 	      g_warning("Failed to load subtitle: %s", error->message);
 	      g_error_free(error);
 	      return;
+	    }
+	    spots = dcsubtitle_get_spots(sub);
+	    while(spots) {
+	      DCSubtitleSpot *spot = spots->data;
+	      subtitle_store_insert(app->subtitle_store,
+				    spot->time_in * 1000000LL,
+				    spot->time_out * 1000000LL,
+				    0, &reel_iter, NULL);
+	      spots = spots->next;
 	    }
 	    g_object_unref(sub);
 	  }
@@ -216,7 +235,7 @@ setup_subtitle_list(AppContext *app, GtkBuilder *builder, GError **err)
   GtkTreeViewColumn *column;
   GtkTreeView *viewer;
   app->subtitle_store = subtitle_store_new();
-  subtitle_store_insert(app->subtitle_store, 1298982, 8192229002, NULL);
+  subtitle_store_insert(app->subtitle_store, 1298982, 8192229002, 0, NULL, NULL);
   viewer = GTK_TREE_VIEW(FIND_OBJECT("subtitle_list"));
   if (!viewer) return FALSE;
   gtk_tree_view_set_model(viewer, GTK_TREE_MODEL(app->subtitle_store));
@@ -235,8 +254,14 @@ setup_subtitle_list(AppContext *app, GtkBuilder *builder, GError **err)
 					     "time", SUBTITLE_STORE_COLUMN_OUT,
 					     NULL);
   gtk_tree_view_append_column(viewer, column);
-  subtitle_store_insert(app->subtitle_store,  29827923793, 98902000202, NULL);
-  subtitle_store_insert(app->subtitle_store, 9192229002, 29827923793, NULL);
+  {
+    GtkTreeIter iter;
+    subtitle_store_insert(app->subtitle_store,  29827923793, 98902000202, 0, NULL, NULL);
+    subtitle_store_insert(app->subtitle_store, 9192229002, 29827923793, 0, NULL, &iter);
+    subtitle_store_insert(app->subtitle_store, 0, 1000000000, SUBTITLE_STORE_TIME_FROM_CHILDREN, &iter, &iter);
+    subtitle_store_insert(app->subtitle_store, 1000000000,  5000000000, 0, &iter, NULL);
+    subtitle_store_insert(app->subtitle_store, 0000000000,  1000000000, 0, &iter, NULL);
+  }
   return TRUE;
 }
 

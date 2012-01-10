@@ -98,5 +98,7 @@ GType dcsubtitle_get_type (void);
 DCSubtitle *
 dcsubtitle_read(GFile *file, GError **error);
 
+GList *
+dcsubtitle_get_spots(DCSubtitle *sub);
 
 #endif /* __DCSUBTITLE_H__FVGHVIDJ8S__ */
