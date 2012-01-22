@@ -1,3 +1,3 @@
-SUBDIRS=subrec
+SUBDIRS=subrec plugin
 ACLOCAL_AMFLAGS=-I m4
 
