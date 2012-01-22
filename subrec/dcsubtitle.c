@@ -266,30 +266,40 @@ text_start(xmlTextReaderPtr reader, gpointer user_data, GError **error)
 
   value = SUBTITLE_DIR_UNKNOWN;
   if (!parse_enum_attr(reader, "Direction", dir_enums, &value, error)) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    value = SUBTITLE_DIR_UNKNOWN;
   }
   text->flags |= value;
 
   value = SUBTITLE_HALIGN_UNKNOWN;
   if (!parse_enum_attr(reader, "HAlign", halign_enums, &value, error)) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    value = SUBTITLE_HALIGN_UNKNOWN;
   }
   text->flags |= value;
 
   value = SUBTITLE_VALIGN_UNKNOWN;
   if (!parse_enum_attr(reader, "VAlign", valign_enums, &value, error)) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    value = SUBTITLE_VALIGN_UNKNOWN;
   }
   text->flags |= value;
 
   text->vpos = parse_double_attr(reader, "VPosition",error);
   if (*error) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    text->vpos = 0.0;
   }
   
   text->hpos = parse_double_attr(reader, "HPosition",error);
   if (*error) {
-    return FALSE;
+     if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    text->hpos = 0.0;
   }
   
   /* g_debug("Text flags %08x , (%f, %f)", text->flags, text->hpos, text->vpos); */
@@ -342,12 +352,16 @@ subtitle_start(xmlTextReaderPtr reader, gpointer user_data, GError **error)
 
   spot->fade_up_time = parse_int_attr(reader, "FadeUpTime",error);
   if (*error) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    spot->fade_up_time = 0;
   }
 
   spot->fade_down_time = parse_int_attr(reader, "FadeDownTime",error);
   if (*error) {
-    return FALSE;
+    if ((*error)->code != DCSUBTITLE_ERROR_XML_STRUCTURE) return FALSE;
+    g_clear_error(error);
+    spot->fade_down_time = 0;
   }
 
   spot->spot_number = parse_int_attr(reader, "SpotNumber",error);

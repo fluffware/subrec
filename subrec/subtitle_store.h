@@ -73,3 +73,7 @@ subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
 /* Setting iter to NULL removes all items */
 void
 subtitle_store_remove(SubtitleStore *store, GtkTreeIter *iter);
+
+gboolean
+subtitle_store_set_text(SubtitleStore *store, 
+			GtkTreeIter *iter, const gchar *text);

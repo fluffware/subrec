@@ -409,7 +409,21 @@ subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
   gtk_tree_path_free(path);
   return TRUE;
 }
-    
+
+gboolean
+subtitle_store_set_text(SubtitleStore *store, 
+			GtkTreeIter *iter, const gchar *text)
+{
+  GtkTreePath *path;
+  SubtitleStoreItem *item = iter->user_data;
+  g_free(item->text);
+  item->text = g_strdup(text);
+  path = model_get_path(GTK_TREE_MODEL(store), iter);
+  gtk_tree_model_row_inserted(GTK_TREE_MODEL(store), path, iter); 
+  gtk_tree_path_free(path);
+  return TRUE;
+}
+
 G_DEFINE_TYPE_WITH_CODE(SubtitleStore, subtitle_store, G_TYPE_OBJECT,\
 			G_IMPLEMENT_INTERFACE(GTK_TYPE_TREE_MODEL,model_init))
 

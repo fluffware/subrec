@@ -49,6 +49,7 @@ typedef struct
   AssetMap *asset_map;
   PackingList *packing_list;
   CompositionPlaylist *cpl;
+  GtkTextBuffer *subtitle_text_buffer;
 } AppContext;
 
 static void
@@ -59,6 +60,8 @@ app_init(AppContext *app)
   app->asset_map = NULL;
   app->packing_list = NULL;
   app->cpl = NULL;
+  app->subtitle_store = NULL;
+  app->subtitle_text_buffer = NULL;
 }
 
 static void
@@ -69,6 +72,7 @@ app_destroy(AppContext *app)
   g_clear_object(&app->packing_list);
   g_clear_object(&app->cpl);
   g_clear_object(&app->subtitle_store);
+  g_clear_object(&app->subtitle_text_buffer);
 }
 
 static void
@@ -176,11 +180,25 @@ load_dialog_response(GtkDialog *dialog,
 	    }
 	    spots = dcsubtitle_get_spots(sub);
 	    while(spots) {
+	      GString *text_buffer;
+	      GtkTreeIter spot_iter;
+	      GList *texts;
 	      DCSubtitleSpot *spot = spots->data;
 	      subtitle_store_insert(app->subtitle_store,
 				    spot->time_in * 1000000LL,
 				    spot->time_out * 1000000LL,
-				    0, &reel_iter, NULL);
+				    0, &reel_iter, &spot_iter);
+	      texts = spot->text;
+	      text_buffer = g_string_new("");
+	      while(texts) {
+		DCSubtitleText *text = texts->data;
+		g_string_append(text_buffer, text->text);
+		texts = texts->next;
+		if (texts) g_string_append_c(text_buffer, '\n');
+	      }
+	      subtitle_store_set_text(app->subtitle_store, &spot_iter,
+				      text_buffer->str);
+	      g_string_free(text_buffer, TRUE);
 	      spots = spots->next;
 	    }
 	    g_object_unref(sub);
@@ -215,6 +233,25 @@ open_assetmap_action_cb(GtkAction *action, AppContext *app)
   gtk_widget_show(GTK_WIDGET(app->load_dialog));
 }
 
+
+
+G_MODULE_EXPORT void
+subtitle_selection_changed_cb(GtkTreeSelection *treeselection, AppContext *app)
+{
+  GtkTreeIter iter;
+  GtkTreeModel *model;
+  GList *selected =
+    gtk_tree_selection_get_selected_rows(treeselection, &model);
+  if (selected) {
+    gchar *text;
+    gtk_tree_model_get_iter(model, &iter, selected->data);
+    gtk_tree_model_get(model, &iter, SUBTITLE_STORE_COLUMN_TEXT, &text, -1);
+    gtk_text_buffer_set_text(app->subtitle_text_buffer, text, -1);
+    g_free(text);
+  }
+  g_list_free_full(selected, (GDestroyNotify)gtk_tree_path_free);
+}
+
 static GObject *
 find_object(GtkBuilder *builder, const gchar *name, GError **err)
 {
@@ -235,13 +272,14 @@ setup_subtitle_list(AppContext *app, GtkBuilder *builder, GError **err)
   GtkTreeViewColumn *column;
   GtkTreeView *viewer;
   app->subtitle_store = subtitle_store_new();
-  subtitle_store_insert(app->subtitle_store, 1298982, 8192229002, 0, NULL, NULL);
+ 
   viewer = GTK_TREE_VIEW(FIND_OBJECT("subtitle_list"));
   if (!viewer) return FALSE;
   gtk_tree_view_set_model(viewer, GTK_TREE_MODEL(app->subtitle_store));
   gtk_tree_view_set_headers_visible(viewer, TRUE);
   /* In column */
   render = gtk_cell_renderer_time_new();
+  g_object_set(render, "yalign", 0.0, NULL);
   column =
     gtk_tree_view_column_new_with_attributes("In", render,
 					     "time", SUBTITLE_STORE_COLUMN_IN,
@@ -254,14 +292,16 @@ setup_subtitle_list(AppContext *app, GtkBuilder *builder, GError **err)
 					     "time", SUBTITLE_STORE_COLUMN_OUT,
 					     NULL);
   gtk_tree_view_append_column(viewer, column);
-  {
-    GtkTreeIter iter;
-    subtitle_store_insert(app->subtitle_store,  29827923793, 98902000202, 0, NULL, NULL);
-    subtitle_store_insert(app->subtitle_store, 9192229002, 29827923793, 0, NULL, &iter);
-    subtitle_store_insert(app->subtitle_store, 0, 1000000000, SUBTITLE_STORE_TIME_FROM_CHILDREN, &iter, &iter);
-    subtitle_store_insert(app->subtitle_store, 1000000000,  5000000000, 0, &iter, NULL);
-    subtitle_store_insert(app->subtitle_store, 0000000000,  1000000000, 0, &iter, NULL);
-  }
+
+  /* Text column */
+  render = gtk_cell_renderer_text_new();
+  g_object_set(render, "yalign", 0.0, NULL);
+  column =
+    gtk_tree_view_column_new_with_attributes("Text", render,
+					     "text", SUBTITLE_STORE_COLUMN_TEXT,
+					     NULL);
+  gtk_tree_view_append_column(viewer, column);
+
   return TRUE;
 }
 
@@ -286,6 +326,14 @@ create_main_window(AppContext *app, GError **err)
     g_object_unref(builder);
     return FALSE;
   }
+
+  app->subtitle_text_buffer = GTK_TEXT_BUFFER(FIND_OBJECT("subtitle_text"));
+  if (!app->subtitle_text_buffer) {
+    g_object_unref(builder);
+    return FALSE;
+  }
+  g_object_ref(app->subtitle_text_buffer);
+
   gtk_builder_connect_signals(builder, app);
  
 
