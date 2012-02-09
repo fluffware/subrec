@@ -144,7 +144,12 @@ buffer_unref(gpointer buf)
 static void
 release_buffers(AudioTrim *filter)
 {
-  g_list_free_full(filter->buffers, buffer_unref);
+  GList *b = filter->buffers;
+  while(b) {
+    buffer_unref(b->data);
+    b = b->next;
+  }
+  g_list_free(filter->buffers);
   filter->buffers = NULL;
   filter->buffered = 0;
 }

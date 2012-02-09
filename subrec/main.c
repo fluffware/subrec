@@ -420,7 +420,7 @@ set_working_directory_action_activate_cb(GtkAction *action, AppContext *app)
     GtkWidget *dialog;
     dialog = gtk_file_chooser_dialog_new("Working directory",
 					 GTK_WINDOW(app->main_win),
-					 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
+					 GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
 					 GTK_STOCK_CANCEL,
 					 GTK_RESPONSE_CANCEL,
 					 GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
@@ -866,9 +866,9 @@ create_main_window(AppContext *app, GError **err)
   app->subtitle_list_view = GTK_TREE_VIEW(FIND_OBJECT("subtitle_list"));
   g_assert(app->subtitle_list_view != NULL);
 
-  app->subtitle_selection =GTK_TREE_SELECTION(FIND_OBJECT("subtitle_selection"));
-  g_assert(app->subtitle_selection != NULL);
-  
+  app->subtitle_selection =gtk_tree_view_get_selection(app->subtitle_list_view);
+  g_signal_connect(app->subtitle_selection, "changed",
+		   (GCallback)subtitle_selection_changed_cb, app);
   app->subtitle_text_buffer = GTK_TEXT_BUFFER(FIND_OBJECT("subtitle_text"));
   g_assert(app->subtitle_text_buffer != NULL);
   g_object_ref(app->subtitle_text_buffer);
@@ -876,6 +876,7 @@ create_main_window(AppContext *app, GError **err)
   app->subtitle_text_view = GTK_TEXT_VIEW(FIND_OBJECT("subtitle_textview"));
   g_assert(app->subtitle_text_view);
 
+#if GTK_CHECK_VERSION(3,0,0)
   {
     GdkRGBA color;
     color.red = 0.5;
@@ -886,6 +887,20 @@ create_main_window(AppContext *app, GError **err)
 					 GTK_STATE_FLAG_ACTIVE,
 					 &color);
   }
+#else
+  {
+    GdkColor color;
+    GdkColormap *colormap = gdk_colormap_get_system();
+    color.red = 32768;
+    color.green = 65535;
+    color.blue = 32768;
+    gdk_colormap_alloc_color(colormap, &color, FALSE, TRUE);
+    g_object_unref(colormap);
+    gtk_widget_modify_base(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_ACTIVE,
+			 &color);
+    
+  }
+#endif
 
   {
     GtkAccelGroup *ag = gtk_accel_group_new();
