@@ -1,3 +1,6 @@
+#ifndef __SUBTITLE_STORE_H__MNFQQQ6EPP__
+#define __SUBTITLE_STORE_H__MNFQQQ6EPP__
+
 #include <glib-object.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
@@ -32,6 +35,12 @@ struct _SubtitleStore
   /* instance members */
   struct SubtitleStoreItem *items;
   gint stamp;
+
+  /* Colors for color column */
+  gchar *no_audio_color;
+  gchar *ok_color;
+  gchar *warning_color;
+  gchar *critical_color;
 };
 
 struct _SubtitleStoreClass
@@ -51,7 +60,17 @@ GType subtitle_store_get_type (void);
 enum {
   SUBTITLE_STORE_COLUMN_IN = 0,
   SUBTITLE_STORE_COLUMN_OUT,
-  SUBTITLE_STORE_COLUMN_TEXT
+  SUBTITLE_STORE_COLUMN_ID,
+  SUBTITLE_STORE_COLUMN_TEXT,
+  SUBTITLE_STORE_COLUMN_FILE,
+  SUBTITLE_STORE_COLUMN_FILE_DURATION,
+  SUBTITLE_STORE_COLUMN_FILE_COLOR,
+  SUBTITLE_STORE_COLUMN_FILES,
+};
+
+enum {
+  SUBTITLE_STORE_FILES_COLUMN_FILE = 0,
+  SUBTITLE_STORE_FILES_COLUMN_DURATION,
 };
 
 /*
@@ -67,8 +86,16 @@ subtitle_store_clear_all(SubtitleStore *store);
 
 gboolean
 subtitle_store_insert(SubtitleStore *store, gint64 in_ns, gint64 out_ns,
-		      guint flags,
+		      const gchar *id, guint flags,
 		      GtkTreeIter *parent, GtkTreeIter *iter);
+
+gboolean
+subtitle_store_prepend_file(SubtitleStore *store, GtkTreeIter *iter,
+			    const gchar *file, gint64 duration);
+
+gboolean
+subtitle_store_remove_file(SubtitleStore *store, 
+			   GtkTreeIter *iter, const gchar *file);
 
 /* Setting iter to NULL removes all items */
 void
@@ -77,3 +104,15 @@ subtitle_store_remove(SubtitleStore *store, GtkTreeIter *iter);
 gboolean
 subtitle_store_set_text(SubtitleStore *store, 
 			GtkTreeIter *iter, const gchar *text);
+
+gboolean
+subtitle_store_set_file(SubtitleStore *store, GtkTreeIter *iter,
+			const gchar *filename, gint64 duration);
+
+gchar *
+subtitle_store_get_filename(SubtitleStore *store, GtkTreeIter *iter);
+
+gint64
+subtitle_store_get_file_duration(SubtitleStore *store, GtkTreeIter *iter);
+
+#endif /* __SUBTITLE_STORE_H__MNFQQQ6EPP__ */

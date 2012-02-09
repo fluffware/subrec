@@ -1,44 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <!-- interface-requires gtk+ 3.0 -->
-  <object class="GtkActionGroup" id="clip_actions">
-    <child>
-      <object class="GtkAction" id="play_clip">
-        <property name="label" translatable="yes">Play</property>
-        <property name="short_label" translatable="yes">Play</property>
-        <property name="stock_id">gtk-media-play</property>
-      </object>
-      <accelerator key="Return"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="stop_clip">
-        <property name="label" translatable="yes">Stop</property>
-        <property name="short_label" translatable="yes">Stop</property>
-        <property name="stock_id">gtk-media-stop</property>
-      </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="record_clip">
-        <property name="label" translatable="yes">Record</property>
-        <property name="short_label" translatable="yes">Record</property>
-        <property name="stock_id">gtk-media-record</property>
-      </object>
-      <accelerator key="space"/>
-    </child>
+  <object class="GtkAction" id="collapse_all_action">
+    <property name="label" translatable="yes">_Collapse All</property>
+    <property name="short_label" translatable="yes">Collapse</property>
+    <property name="stock_id">gtk-remove</property>
+    <signal name="activate" handler="collapse_all_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="expand_all_action">
+    <property name="label" translatable="yes">_Expand All</property>
+    <property name="short_label" translatable="yes">Expand</property>
+    <property name="stock_id">gtk-add</property>
+    <signal name="activate" handler="expand_all_action_activate_cb" swapped="no"/>
   </object>
   <object class="GtkAction" id="open_assetmap_action">
-    <property name="label" translatable="yes">Open ASSETMAP</property>
+    <property name="label" translatable="yes">_Open ASSETMAP</property>
     <property name="stock_id">gtk-open</property>
     <property name="icon_name">Open ASSETMAP</property>
     <signal name="activate" handler="open_assetmap_action_cb" swapped="no"/>
   </object>
+  <object class="GtkAction" id="play_clip">
+    <property name="label" translatable="yes">Play</property>
+    <property name="short_label" translatable="yes">Play</property>
+    <property name="stock_id">gtk-media-play</property>
+    <signal name="activate" handler="play_action_activate_cb" swapped="no"/>
+  </object>
   <object class="GtkAction" id="quit_action">
-    <property name="label" translatable="yes">Quit</property>
+    <property name="label" translatable="yes">_Quit</property>
     <property name="stock_id">gtk-quit</property>
     <signal name="activate" handler="quit_action_cb" swapped="no"/>
   </object>
-  <object class="GtkTextBuffer" id="subtitle_text"/>
-  <object class="GtkWindow" id="mainwin">
+  <object class="GtkAction" id="record_clip">
+    <property name="label" translatable="yes">Record</property>
+    <property name="short_label" translatable="yes">Record</property>
+    <property name="stock_id">gtk-media-record</property>
+    <signal name="activate" handler="record_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="save_action">
+    <property name="label" translatable="yes">_Save</property>
+    <property name="stock_id">gtk-save</property>
+    <signal name="activate" handler="save_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="set_working_directory_action">
+    <property name="label" translatable="yes">Set _working directory</property>
+    <property name="stock_id">gtk-save-as</property>
+    <signal name="activate" handler="set_working_directory_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="stop_clip">
+    <property name="label" translatable="yes">Stop</property>
+    <property name="short_label" translatable="yes">Stop</property>
+    <property name="stock_id">gtk-media-stop</property>
+    <signal name="activate" handler="stop_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkWindow" id="subrec">
     <property name="can_focus">False</property>
     <signal name="destroy" handler="main_win_destroyed" swapped="no"/>
     <child>
@@ -72,8 +86,7 @@
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="savemenuitem">
-                        <property name="label">gtk-save</property>
-                        <property name="use_action_appearance">False</property>
+                        <property name="related_action">save_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -82,8 +95,7 @@
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="saveasmenuitem">
-                        <property name="label">gtk-save-as</property>
-                        <property name="use_action_appearance">False</property>
+                        <property name="related_action">set_working_directory_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -103,7 +115,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                   </object>
@@ -111,67 +123,32 @@
               </object>
             </child>
             <child>
-              <object class="GtkMenuItem" id="editmenuitem">
+              <object class="GtkMenuItem" id="view_menuitem">
                 <property name="use_action_appearance">False</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Edit</property>
+                <property name="label" translatable="yes">_View</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="menu2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem6">
-                        <property name="label">gtk-cut</property>
-                        <property name="use_action_appearance">False</property>
+                      <object class="GtkImageMenuItem" id="expand_all_menuitem">
+                        <property name="related_action">expand_all_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem7">
-                        <property name="label">gtk-copy</property>
-                        <property name="use_action_appearance">False</property>
+                      <object class="GtkImageMenuItem" id="collapse_all_menuitem">
+                        <property name="related_action">collapse_all_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem8">
-                        <property name="label">gtk-paste</property>
-                        <property name="use_action_appearance">False</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem9">
-                        <property name="label">gtk-delete</property>
-                        <property name="use_action_appearance">False</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
                       </object>
                     </child>
                   </object>
                 </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="menuitem3">
-                <property name="use_action_appearance">False</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_View</property>
-                <property name="use_underline">True</property>
               </object>
             </child>
             <child>
@@ -234,6 +211,18 @@
                 <property name="expand">True</property>
                 <property name="fill">True</property>
                 <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkSeparator" id="separator1">
+                <property name="height_request">2</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
               </packing>
             </child>
             <child>
@@ -325,7 +314,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
           </object>
@@ -351,4 +340,5 @@
       </object>
     </child>
   </object>
+  <object class="GtkTextBuffer" id="subtitle_text"/>
 </interface>

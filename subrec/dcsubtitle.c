@@ -87,6 +87,7 @@ typedef struct ParseCtxt {
   DCSubtitle *sub;
   DCSubtitleSpot *current_spot;
   DCSubtitleText *current_text;
+  gboolean text_handled;
 } ParseCtxt;
 
 static void
@@ -250,7 +251,35 @@ static const EnumMap valign_enums[] = {
   {NULL,0}
 };
 
+/* Text/Font */
+static gboolean
+text_font_start(xmlTextReaderPtr reader, gpointer user_data, GError **error)
+{
+  return TRUE;
+}
+static gboolean
+text_font_end(xmlTextReaderPtr reader, gpointer user_data,
+	     gchar *text, GError **error)
+{
+  ParseCtxt *ctxt = user_data;
+  ctxt->current_text->text = text;
+  ctxt->current_spot->text =
+    g_list_append(ctxt->current_spot->text, ctxt->current_text);
+  ctxt->current_text = NULL;
+  return TRUE;
+}
 
+static const XMLTreeParserElement text_font_elem =
+  {
+    NAMESPACE_DCS,
+    "Font",
+    NULL,
+    XML_TREE_PARSER_TEXT,
+    text_font_start,
+    text_font_end
+  };
+
+/* Text */
 static gboolean
 text_start(xmlTextReaderPtr reader, gpointer user_data, GError **error)
 {
@@ -301,7 +330,8 @@ text_start(xmlTextReaderPtr reader, gpointer user_data, GError **error)
     g_clear_error(error);
     text->hpos = 0.0;
   }
-  
+
+  ctxt->text_handled = FALSE;
   /* g_debug("Text flags %08x , (%f, %f)", text->flags, text->hpos, text->vpos); */
   return TRUE;
 }
@@ -311,20 +341,24 @@ text_end(xmlTextReaderPtr reader, gpointer user_data,
 	     gchar *text, GError **error)
 {
   ParseCtxt *ctxt = user_data;
-  ctxt->current_text->text = text;
-  /* g_debug("Text: '%s'", text); */
-  ctxt->current_spot->text =
-    g_list_append(ctxt->current_spot->text, ctxt->current_text);
+  if (text) {
+    ctxt->current_text->text = text;
+    /* g_debug("Text: '%s'", text); */
+    ctxt->current_spot->text =
+      g_list_append(ctxt->current_spot->text, ctxt->current_text);
+  }
   ctxt->current_text = NULL;
   return TRUE;
 }
+static const XMLTreeParserElement *text_children[] =
+  {&text_font_elem, NULL};
 
 static const XMLTreeParserElement text_elem =
   {
     NAMESPACE_DCS,
     "Text",
-    NULL,
-    XML_TREE_PARSER_TEXT,
+    text_children,
+    XML_TREE_PARSER_TEXT_IF_LEAF,
     text_start,
     text_end
   };

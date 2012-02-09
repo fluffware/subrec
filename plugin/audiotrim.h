@@ -45,7 +45,7 @@ struct _AudioTrim
   /* Properties */
   guint start_threshold;
   guint end_threshold;
-
+  
   /* Ignore at beginning of clip. */
   GstClockTime start_skip;
   /* Ignore at end of clip */
@@ -59,6 +59,10 @@ struct _AudioTrim
   /* Don't save silence for more than this. */
   GstClockTime max_silence_duration;
 
+  /* Send an empty packet when the first packet is received to
+     let down-streams know we're started */
+  gboolean empty_start_packet;
+
   /* Analysis state */
   gfloat accumulator;
   gfloat f0;
@@ -67,17 +71,18 @@ struct _AudioTrim
   /* Currently buffered duration. */
   GstClockTime buffered;
 
-
+  /* Duration of detected sound */
+  GstClockTime sound_duration;
   /* A reference time depending on the state. In samples
      
      START_SKIP:
-     Transition to START_SILENCE at this time.
+     Transition to START_SILENCE at this position.
      
      START_SILENCE:
-     Save buffers after this time.
+     Save buffers after this position.
      
-     SILENCE:
-     Beginning of silence.
+     NOT_SILENCE:
+     Forward buffers after this position.
   */
   guint64 ref_time;
 

@@ -6,6 +6,7 @@
 #include <libxml/xmlreader.h>
 
 #define XML_TREE_PARSER_TEXT 1
+#define XML_TREE_PARSER_TEXT_IF_LEAF 2
 
 #define XML_TREE_PARSER_ERROR xml_tree_parser_error_quark()
 enum {

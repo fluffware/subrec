@@ -61,8 +61,8 @@ parse_element(xmlTextReaderPtr reader,
   g_assert(xmlTextReaderNodeType(reader) == XML_READER_TYPE_ELEMENT);
   if (parsers && (parser = match_element(reader, parsers, error))) {
     /* g_debug("Processing child %s", xmlTextReaderConstLocalName(reader)); */
-    if (parser->flags & XML_TREE_PARSER_TEXT) {
-      if (ctxt->text) {
+    if (parser->flags & (XML_TREE_PARSER_TEXT | XML_TREE_PARSER_TEXT_IF_LEAF)) {
+      if (ctxt->text && (parser->flags & XML_TREE_PARSER_TEXT_IF_LEAF)) {
 	g_error("Parent of %s is already collecting text",
 		xmlTextReaderConstLocalName(reader));
       }
@@ -89,6 +89,12 @@ parse_element(xmlTextReaderPtr reader,
 	  switch(xmlTextReaderNodeType(reader)) {
 	  case XML_READER_TYPE_ELEMENT:
 	    {
+	      if ((parser->flags & XML_TREE_PARSER_TEXT_IF_LEAF)
+		  && ctxt->text) {
+		/* A child element was found, so cancel text collection */
+		g_string_free(ctxt->text, TRUE);
+		ctxt->text = NULL;
+	      }
 	      ret=parse_element(reader, parser->child_parsers, ctxt, error);
 	      if (ret != OK && ret != NOMATCH) {
 		return ret;

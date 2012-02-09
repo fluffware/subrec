@@ -88,7 +88,8 @@ enum
   PROP_END_SKIP,
   PROP_PRE_SILENCE,
   PROP_POST_SILENCE,
-  PROP_MAX_SILENCE
+  PROP_MAX_SILENCE,
+  PROP_SOUND_DURATION
 };
 
 #define AUDIO_PAD_CAPS "audio/x-raw-float,"	\
@@ -258,6 +259,15 @@ audio_trim_class_init (AudioTrimClass * klass)
 			       0,G_MAXINT64, DEFAULT_MAX_SILENCE,
 			       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property(gobject_class, PROP_MAX_SILENCE, pspec);
+  
+  /* sound-duration */
+  pspec = g_param_spec_uint64 ("sound-duration",
+			       "Duration of sound",
+			       "Duration of detected sound so far when running,"
+			       " or total sound duration after EOS",
+			       0,G_MAXINT64, 0,
+			       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property(gobject_class, PROP_SOUND_DURATION, pspec);
 }
 
 static void
@@ -291,12 +301,14 @@ audio_trim_init (AudioTrim * filter,
   filter->pre_silence = DEFAULT_PRE_SILENCE;
   filter->post_silence = DEFAULT_POST_SILENCE;
   filter->max_silence_duration = DEFAULT_MAX_SILENCE;
+  filter->empty_start_packet = TRUE;
   
   filter->accumulator = 0.0;
   filter->f0 = 0.999;
   filter->trim_state = AUDIO_TRIM_NOT_STARTED;
 
   filter->buffered = 0;
+  filter->sound_duration = 0;
 }
 
 static void
@@ -366,7 +378,9 @@ audio_trim_get_property (GObject * object, guint prop_id,
   case PROP_MAX_SILENCE:
     g_value_set_uint64 (value, filter->max_silence_duration);
     break;
-    
+  case PROP_SOUND_DURATION:
+    g_value_set_uint64 (value, filter->sound_duration);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     break;
@@ -421,6 +435,7 @@ audio_trim_change_state (GstElement *element, GstStateChange transition)
     filter->accumulator = 0.0;
     filter->f0 = 0.99;
     filter->trim_state = AUDIO_TRIM_NOT_STARTED;
+    filter->sound_duration = 0;
     break;
   default:
     break;
@@ -577,25 +592,6 @@ save_buffer(AudioTrim *filter, GstBuffer *buf)
   filter->buffered += GST_BUFFER_DURATION(buf);
 }
 
-
-
-static GstFlowReturn
-send_buffers(AudioTrim *filter)
-{
-  GstFlowReturn ret = GST_FLOW_OK;
-  GList *b = filter->buffers;
-  while(b) {
-    GstBuffer *buf = b->data;
-    ret = gst_pad_push(filter->srcpad, buf);
-    if (ret != GST_FLOW_OK) break;
-    b = g_list_next(b);
-  }
-  g_list_free(filter->buffers);
-  filter->buffers = NULL;
-  filter->buffered = 0;
-  return ret;
-}
-
 static GstFlowReturn
 send_buffers_after(AudioTrim *filter, gint64 after)
 {
@@ -664,6 +660,24 @@ audio_trim_chain (GstPad * pad, GstBuffer * buf)
     case AUDIO_TRIM_NOT_STARTED:
       filter->ref_time = (GST_BUFFER_OFFSET(buf)
 			  + time_to_sample(filter, filter->start_skip));
+      if (filter->empty_start_packet) {
+	GstFlowReturn ret;
+	GstBuffer *first;
+	first = gst_buffer_new_and_alloc (sizeof(gfloat));
+	*(gfloat*)GST_BUFFER_DATA(first) = 0.0;
+	GST_BUFFER_SIZE(first) = 4;
+	GST_BUFFER_OFFSET(first) = GST_BUFFER_OFFSET(buf); 
+	GST_BUFFER_OFFSET_END(first) = GST_BUFFER_OFFSET(buf);
+	GST_BUFFER_TIMESTAMP(first) = GST_BUFFER_TIMESTAMP(buf);
+	GST_BUFFER_DURATION(first) = 0;
+	GST_BUFFER_CAPS(first) = gst_caps_ref(GST_BUFFER_CAPS(buf));
+	
+	ret = gst_pad_push(filter->srcpad, first);
+	if (ret != GST_FLOW_OK) {
+	  gst_buffer_unref(buf);
+	  return ret;
+	}
+      }
       filter->trim_state = AUDIO_TRIM_START_SKIP;
       break;
     case AUDIO_TRIM_START_SKIP:
@@ -709,9 +723,11 @@ audio_trim_chain (GstPad * pad, GstBuffer * buf)
 	    }
 	  }
 	  tail = buffer_tail(filter, buf, offset);
+	  filter->sound_duration =
+	    sample_to_time(filter, GST_BUFFER_OFFSET_END(buf) - clip_start);
+	  filter->ref_time = clip_start;
 	  gst_buffer_unref(buf);
 	  buf = tail;
-	  filter->ref_time = offset;
 	  filter->trim_state = AUDIO_TRIM_NOT_SILENCE;
 	  g_debug("Got sound");
 	}
@@ -720,6 +736,7 @@ audio_trim_chain (GstPad * pad, GstBuffer * buf)
     case AUDIO_TRIM_NOT_SILENCE:
       {
 	GstFlowReturn ret;
+	filter->sound_duration += GST_BUFFER_DURATION(buf);
 	while(filter->buffered > filter->max_silence_duration) {
 	  GstBuffer *old = filter->buffers->data;
 	  filter->buffered -= GST_BUFFER_DURATION(old);
@@ -762,6 +779,7 @@ audio_trim_event (GstPad * pad, GstEvent *event)
 	if (pos != GST_BUFFER_OFFSET_NONE) {
 	  pos += time_to_sample(filter, filter->post_silence);
 	  send_buffers_before(filter,pos);
+	  filter->sound_duration=sample_to_time(filter, pos - filter->ref_time);
 	  break;
 	}
 	b = g_list_previous(b);
