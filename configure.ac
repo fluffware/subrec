@@ -44,6 +44,6 @@ AC_SUBST(GST_APP_LIBS,`pkg-config gstreamer-app-0.10 --libs`)
 
 AM_PATH_XML2
 
-AC_CONFIG_FILES([Makefile subrec/Makefile plugin/Makefile])
+AC_CONFIG_FILES([Makefile subrec/Makefile plugin/Makefile debian/VERSION])
 
 AC_OUTPUT

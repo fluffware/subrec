@@ -1,0 +1,18 @@
+Source: subrec
+Maintainer: Simon Berg <ksb@users.sourceforge.net>
+Section: contrib/sound
+Priority: extra
+Build-Depends: libgtk2.0-dev | libgtk-3-dev, libgstreamer0.10-dev, debhelper
+Standards-Version: 3.9.2
+
+Package: subrec
+Architecture: any
+Section: contrib/sound
+Priority: extra
+Depends: ${shlibs:Depends}
+Description: Records sound for subtitles from a DCP (Digital Cinema Package)
+ Subtitle are extracted from a DCP and sound can be recorded for every
+ subtitle.
+
+
+

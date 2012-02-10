@@ -1,0 +1,55 @@
+#!/usr/bin/make -f
+top_dir:=$(shell pwd)
+
+# Adapted from an example in the Debian Policy Manual
+CFLAGS = -Wall -g --pedantic
+INSTALL = install
+INSTALL_FILE    = $(INSTALL) -p    -o root -g root  -m  644
+INSTALL_PROGRAM = $(INSTALL) -p    -o root -g root  -m  755
+INSTALL_SCRIPT  = $(INSTALL) -p    -o root -g root  -m  755
+INSTALL_DIR     = $(INSTALL) -p -d -o root -g root  -m  755
+
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -O0
+else
+	CFLAGS += -O2
+endif
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	MAKEFLAGS += -j$(NUMJOBS)
+endif
+
+MAKEFLAGS += DESTDIR=$(top_dir)/debian/subrec
+
+build: debian/configure.stamp
+        make $(MAKEFLAGS) CFLAGS="$(CFLAGS)"
+
+debian/configure.stamp: configure
+	dh_testdir
+	./configure --prefix=/usr
+	touch $(top_dir)/debian/configure.stamp
+
+binary-arch: build $(top_dir)/debian/configure.stamp
+	dh_testdir
+	dh_prep
+	make install-exec
+	dh_strip
+
+binary-indep:
+	dh_testdir
+	make install-data
+
+binary: binary-arch binary-indep
+	dh_shlibdeps
+	dh_fixperms
+	dh_installchangelogs $(top_dir)/ChangeLog
+	dh_compress
+	dh_gencontrol -- -v`cat debian/VERSION`
+	dh_md5sums
+	dh_builddeb
+
+clean:
+	dh_clean
+	-rm debian/configure.stamp
+	-rm debian/VERSION
+	-make clean

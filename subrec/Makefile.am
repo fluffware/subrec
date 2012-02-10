@@ -1,10 +1,11 @@
 uidir=@datadir@/subrec/ui
-INCLUDES= -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPPFLAGS@ -DUIDIR=$(uidir)
+INCLUDES= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPPFLAGS@
 
 AM_CFLAGS="-std=c99"
 
 bin_PROGRAMS = subrec
 subrec_SOURCES = main.c  builderutils.c \
+about_dialog.c about_dialog.h \
 asset_map.c asset_map.h \
 xml_tree_parser.c xml_tree_parser.h \
 packing_list.c packing_list.h \
@@ -21,4 +22,11 @@ subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 
 ui_DATA= main_win.ui
 
+dir_config.h: @top_srcdir@/config.status
+	echo "#define UIDIR \"$(uidir)\"" > $@
+
 gui: main_win.ui
+
+BUILT_SOURCES= dir_config.h
+
+CLEANFILES = dir_config.h
