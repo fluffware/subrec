@@ -53,8 +53,11 @@ show_about_dialog(GtkWindow *parent)
     gtk_text_buffer_set_text(buffer, license_text, -1);
     view = gtk_text_view_new_with_buffer (buffer);
     g_object_set(view,"editable", FALSE, "wrap-mode", GTK_WRAP_WORD,
-		 "cursor-visible", NULL);
+		 "cursor-visible", FALSE, NULL);
     scrolled = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
+				   GTK_POLICY_AUTOMATIC,
+				   GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(scrolled), view);
     gtk_widget_show(view);
     gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
