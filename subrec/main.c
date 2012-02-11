@@ -12,6 +12,7 @@
 #include <subtitle_store_io.h>
 #include <gtkcellrenderertime.h>
 #include <clip_recorder.h>
+#include <about_dialog.h>
 #include <string.h>
 
 #define SUBTITLE_LIST_FILENAME "SUBTITLES.xml"
@@ -628,6 +629,11 @@ collapse_all_action_activate_cb(GtkAction *action, AppContext *app)
   gtk_tree_view_collapse_all(app->subtitle_list_view);
 }
 
+G_MODULE_EXPORT void
+about_action_activate_cb(GtkAction *action, AppContext *app)
+{
+  show_about_dialog(GTK_WINDOW(app->main_win));
+}
 
 static GObject *
 find_object(GtkBuilder *builder, const gchar *name, GError **err)
@@ -838,7 +844,6 @@ setup_actions(AppContext *app, GtkBuilder *builder, GtkAccelGroup *ag,
 				      "stop_clip", "space",err))) {
     return FALSE;
   }
-  
   return TRUE;
 }
 

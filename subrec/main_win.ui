@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <!-- interface-requires gtk+ 3.0 -->
+  <object class="GtkAction" id="about_action">
+    <property name="label" translatable="yes">_About</property>
+    <property name="short_label" translatable="yes">About</property>
+    <property name="stock_id">gtk-about</property>
+    <signal name="activate" handler="about_action_activate_cb" swapped="no"/>
+  </object>
   <object class="GtkAction" id="collapse_all_action">
     <property name="label" translatable="yes">_Collapse All</property>
     <property name="short_label" translatable="yes">Collapse</property>
@@ -152,7 +158,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkMenuItem" id="menuitem4">
+              <object class="GtkMenuItem" id="help_menuitem">
                 <property name="use_action_appearance">False</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -163,13 +169,12 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem10">
-                        <property name="label">gtk-about</property>
-                        <property name="use_action_appearance">False</property>
+                      <object class="GtkImageMenuItem" id="about_menuitem">
+			<property name="related_action">about_action</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
                       </object>
                     </child>
                   </object>
