@@ -1,3 +1,22 @@
-Reel - group - spot levels in list.
+Save reminder when exiting.
+
+Version in about dialog.
+And maybe Git ID
+
+Sound indicator
+Indicates when sound is detected on the input.
+
 Grouping spots
-Manual advance of recording or automatic.
+
+Manual advance of recording or automatic. (currently automatic)
+
+Normalizing audio levels
+
+User settings
+
+Recover audio files.
+Add audio files found that match the current list to the list.
+
+Clean files.
+Remove all files that ar not present in the list
+or all that are not currently selected.
