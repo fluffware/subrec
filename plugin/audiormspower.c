@@ -141,6 +141,7 @@ release_power_buffers(AudioRmsPower *filter)
   filter->power_buffers = NULL;
   if (filter->current_power_buffer) {
     gst_buffer_unref(filter->current_power_buffer);
+    filter->current_power_buffer = NULL;
   }
 }
 
@@ -298,8 +299,6 @@ setup_sub_block(AudioRmsPower *filter)
 {
   filter->sub_block_sample_count =
     (filter->sample_rate * filter->sub_block_length) / GST_SECOND;
-  filter->sub_block_samples_left = filter->sub_block_sample_count;
-  filter->square_acc = 0.0;
 }
 
 static void
@@ -309,6 +308,8 @@ restart_analysis(AudioRmsPower * filter)
   memset(filter->prefilter_x, 0, sizeof(filter->prefilter_x));
   memset(filter->prefilter_y, 0, sizeof(filter->prefilter_y));
   release_power_buffers(filter);
+  filter->sub_block_samples_left = filter->sub_block_sample_count;
+  filter->square_acc = 0.0;
   filter->generated_offset = 0;
 }
   

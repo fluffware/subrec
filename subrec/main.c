@@ -634,6 +634,16 @@ stopped_cb(ClipRecorder *recorder, AppContext *app)
   g_debug("Stopped");
 }
 
+static void
+run_error_cb(ClipRecorder *recorder, GError *err, AppContext *app)
+{
+  g_clear_object(&app->recorded_file);
+  gtk_action_group_set_sensitive(app->record_actions, FALSE);
+  gtk_action_group_set_sensitive(app->subtitle_actions, TRUE);
+  gtk_action_group_set_sensitive(app->global_actions, TRUE);
+  show_error_msg(app, "Audio pipeline error", err->message);
+}
+
 static gboolean
 record_timeout (gpointer user_data) {
   AppContext *app = user_data;
@@ -1016,6 +1026,7 @@ setup_recorder(AppContext *app, GError **error)
   g_signal_connect(app->recorder, "recording", (GCallback)recording_cb, app);
   g_signal_connect(app->recorder, "playing", (GCallback)playing_cb, app);
   g_signal_connect(app->recorder, "stopped", (GCallback)stopped_cb, app);
+  g_signal_connect(app->recorder, "run-error", (GCallback)run_error_cb, app);
   g_signal_connect(app->recorder, "power", (GCallback)record_power_cb, app);
   return TRUE;
 }

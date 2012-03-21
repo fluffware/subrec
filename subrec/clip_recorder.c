@@ -255,7 +255,7 @@ bus_call (GstBus     *bus,
 	  gpointer    data)
 {
   ClipRecorder *recorder = data;
-  if (!recorder->active_pipeline) return FALSE;
+  if (!recorder->active_pipeline) return TRUE;
   /* g_debug("bus_call: %s", GST_MESSAGE_TYPE_NAME(msg)); */
   switch (GST_MESSAGE_TYPE (msg)) {
   case GST_MESSAGE_EOS:
@@ -277,7 +277,8 @@ bus_call (GstBus     *bus,
       g_free (debug);
     }
     gst_element_set_state(GST_ELEMENT(recorder->active_pipeline),
-			  GST_STATE_READY);
+			  GST_STATE_NULL);
+    recorder->active_pipeline = NULL;
     break;
   }
   case GST_MESSAGE_STATE_CHANGED:
@@ -501,7 +502,7 @@ get_adjust_pipeline(ClipRecorder *recorder, GError **err)
     if (!composition) {
       g_set_error(err, CLIP_RECORDER_ERROR,
 		  CLIP_RECORDER_ERROR_CREATE_ELEMENT_FAILED,
-		  "Failed to source composition");
+		  "Failed to create source composition");
       gst_object_unref(pipeline);
       return NULL;
     }
@@ -815,6 +816,7 @@ clip_recorder_record(ClipRecorder *recorder, GFile *file,GError **err)
   if (state_ret == GST_STATE_CHANGE_FAILURE) {
     g_set_error(err, CLIP_RECORDER_ERROR, CLIP_RECORDER_ERROR_STATE,
 		"Failed to set state of recording pipeline to PLAYING");
+    gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_NULL);
     return FALSE;
   }
   recorder->active_pipeline = pipeline;
@@ -840,6 +842,7 @@ clip_recorder_play(ClipRecorder *recorder, GFile *file,GError **err)
   if (state_ret == GST_STATE_CHANGE_FAILURE) {
     g_set_error(err, CLIP_RECORDER_ERROR, CLIP_RECORDER_ERROR_STATE,
 		"Failed to set state of play pipeline to PLAYING");
+    gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_NULL);
     return FALSE;
   }
   recorder->active_pipeline = pipeline;
