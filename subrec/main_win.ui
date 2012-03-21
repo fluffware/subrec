@@ -7,6 +7,16 @@
     <property name="stock_id">gtk-about</property>
     <signal name="activate" handler="about_action_activate_cb" swapped="no"/>
   </object>
+  <object class="GtkIconFactory" id="app_iconfactory">
+    <sources>
+      <source stock-id="subrec-red-lamp" filename="red_lamp_normal.png"/>
+      <source stock-id="subrec-red-lamp" state="prelight" filename="red_lamp_active.png"/>
+      <source stock-id="subrec-green-lamp" state="normal" filename="green_lamp_normal.png"/>
+      <source stock-id="subrec-green-lamp" state="prelight" filename="green_lamp_active.png"/>
+      <source stock-id="subrec-yellow-lamp" state="normal" filename="yellow_lamp_normal.png"/>
+      <source stock-id="subrec-yellow-lamp" state="prelight" filename="yellow_lamp_active.png"/>
+    </sources>
+  </object>
   <object class="GtkAction" id="collapse_all_action">
     <property name="label" translatable="yes">_Collapse All</property>
     <property name="short_label" translatable="yes">Collapse</property>
@@ -58,6 +68,7 @@
     <property name="stock_id">gtk-media-stop</property>
     <signal name="activate" handler="stop_action_activate_cb" swapped="no"/>
   </object>
+  <object class="GtkTextBuffer" id="subtitle_text"/>
   <object class="GtkWindow" id="subrec">
     <property name="can_focus">False</property>
     <signal name="destroy" handler="main_win_destroyed" swapped="no"/>
@@ -65,7 +76,6 @@
       <object class="GtkVBox" id="winbox">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
         <child>
           <object class="GtkMenuBar" id="mainmenubar">
             <property name="visible">True</property>
@@ -144,6 +154,7 @@
                         <property name="related_action">expand_all_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                     <child>
@@ -151,6 +162,7 @@
                         <property name="related_action">collapse_all_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                   </object>
@@ -170,11 +182,11 @@
                     <property name="can_focus">False</property>
                     <child>
                       <object class="GtkImageMenuItem" id="about_menuitem">
-			<property name="related_action">about_action</property>
-                        <property name="use_action_appearance">True</property>
+                        <property name="related_action">about_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                   </object>
@@ -192,7 +204,6 @@
           <object class="GtkVBox" id="box3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="orientation">vertical</property>
             <child>
               <object class="GtkScrolledWindow" id="scrolledwindow1">
                 <property name="visible">True</property>
@@ -204,13 +215,9 @@
                     <property name="can_focus">True</property>
                     <property name="headers_clickable">False</property>
                     <property name="rubber_banding">True</property>
-<!--
                     <child internal-child="selection">
-                      <object class="GtkTreeSelection" id="subtitle_selection">
-                        <signal name="changed" handler="subtitle_selection_changed_cb" swapped="no"/>
-                      </object>
+                      <object class="GtkTreeSelection" id="treeview-selection1"/>
                     </child>
--->
                   </object>
                 </child>
               </object>
@@ -240,7 +247,6 @@
                   <object class="GtkVBox" id="box2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="orientation">vertical</property>
                     <child>
                       <object class="GtkTextView" id="subtitle_textview">
                         <property name="height_request">100</property>
@@ -257,17 +263,62 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkHButtonBox" id="buttonbox1">
+                      <object class="GtkBox" id="bottom_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="layout_style">start</property>
                         <child>
-                          <object class="GtkButton" id="play_button">
-                            <property name="related_action">play_clip</property>
+                          <object class="GtkHButtonBox" id="buttonbox1">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="related_action">play_clip</property>
+                            <property name="can_focus">False</property>
+                            <property name="layout_style">start</property>
+                            <child>
+                              <object class="GtkButton" id="play_button">
+                                <property name="label" translatable="yes">Play</property>
+                                <property name="related_action">play_clip</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="related_action">play_clip</property>
+                                <property name="use_underline">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="stop_button">
+                                <property name="label" translatable="yes">Stop</property>
+                                <property name="related_action">stop_clip</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="related_action">stop_clip</property>
+                                <property name="use_underline">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="record_button">
+                                <property name="label" translatable="yes">Record</property>
+                                <property name="related_action">record_clip</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="related_action">record_clip</property>
+                                <property name="use_underline">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -276,37 +327,57 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="stop_button">
-                            <property name="related_action">stop_clip</property>
+                          <object class="GtkBox" id="box5">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="related_action">stop_clip</property>
+                            <property name="can_focus">False</property>
+                            <property name="homogeneous">True</property>
+                            <child>
+                              <object class="GtkImage" id="green_lamp">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="stock">subrec-green-lamp</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkImage" id="yellow_lamp">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="stock">subrec-yellow-lamp</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkImage" id="red_lamp">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="stock">subrec-red-lamp</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
                           </object>
                           <packing>
                             <property name="expand">False</property>
-                            <property name="fill">True</property>
+                            <property name="fill">False</property>
                             <property name="position">1</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="record_button">
-                            <property name="related_action">record_clip</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="related_action">record_clip</property>
-                          </object>
-                          <packing>
-                            <property name="expand">False</property>
-                            <property name="fill">True</property>
-                            <property name="position">2</property>
                           </packing>
                         </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
-                        <property name="fill">True</property>
+                        <property name="fill">False</property>
                         <property name="position">1</property>
                       </packing>
                     </child>
@@ -347,5 +418,4 @@
       </object>
     </child>
   </object>
-  <object class="GtkTextBuffer" id="subtitle_text"/>
 </interface>

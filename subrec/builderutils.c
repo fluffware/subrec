@@ -1,5 +1,5 @@
-#include "builderutils.h"
 #include "dir_config.h"
+#include "builderutils.h"
 gboolean
 builderutils_add_from_file(GtkBuilder *builder, gchar *filename, GError **err)
 {

@@ -28,10 +28,16 @@ struct _ClipRecorder
 
   /* instance members */
   GstPipeline *record_pipeline;
+  GstPipeline *adjust_pipeline;
   GstPipeline *playback_pipeline;
   GstPipeline *active_pipeline;
 
-  gint64 last_record_length;
+  gdouble trim_level;
+
+  /* Analysis results */
+  GstClockTime trim_start;
+  GstClockTime trim_end;
+  gdouble loudness;
 };
 
 struct _ClipRecorderClass
@@ -45,6 +51,7 @@ struct _ClipRecorderClass
   void (*recording)(ClipRecorder *recorder, gpointer user_data);
   void (*playing)(ClipRecorder *recorder, gpointer user_data);
   void (*stopped)(ClipRecorder *recorder, gpointer user_data);
+  void (*power)(ClipRecorder *recorder, gdouble power);
 };
 
 ClipRecorder *clip_recorder_new(void);
@@ -53,5 +60,4 @@ gboolean clip_recorder_record(ClipRecorder *recorder, GFile *file,GError **err);
 gboolean clip_recorder_play(ClipRecorder *recorder, GFile *file, GError **err);
 gboolean clip_recorder_stop(ClipRecorder *recorder, GError **err);
 
-gint64 clip_recorder_recorded_length(ClipRecorder *recorder);
 #endif /* __CLIP_RECORDER_H__NQKIV1K2IA__ */

@@ -14,6 +14,7 @@
 #include <clip_recorder.h>
 #include <about_dialog.h>
 #include <string.h>
+#include <math.h>
 
 #define SUBTITLE_LIST_FILENAME "SUBTITLES.xml"
 #define SUBREC_ERROR (subrec_error_quark())
@@ -44,7 +45,10 @@ quit_action_cb(GtkAction *action, gpointer user_data)
   gtk_main_quit();
 }
 
-
+#define dB(x) (powf(10.0,((x)/10.0)))
+#define DEFAULT_SILENCE_LEVEL dB(-30)
+#define DEFAULT_NORMAL_LEVEL dB(-10)
+#define DEFAULT_TOP_LEVEL dB(-3)
 
 typedef struct
 {
@@ -58,6 +62,9 @@ typedef struct
   GtkActionGroup *global_actions;
   GtkActionGroup *subtitle_actions;
   GtkActionGroup *record_actions;
+  GtkImage *red_lamp;
+  GtkImage *yellow_lamp;
+  GtkImage *green_lamp;
   SubtitleStore *subtitle_store;
   GtkTreePath *active_subtitle;
   AssetMap *asset_map;
@@ -68,6 +75,7 @@ typedef struct
   GtkTextBuffer *subtitle_text_buffer;
   GtkTextView *subtitle_text_view;
   ClipRecorder *recorder;
+  guint record_timer;
   GFile *recorded_file;
   GFile *working_directory;
 } AppContext;
@@ -90,6 +98,7 @@ app_init(AppContext *app)
   app->subtitle_text_buffer = NULL;
   app->subtitle_text_view = NULL;
   app->recorder = NULL;
+  app->record_timer = 0;
   app->recorded_file = NULL;
   app->working_directory = NULL;
   app->global_actions = NULL;
@@ -100,6 +109,10 @@ app_init(AppContext *app)
 static void
 app_destroy(AppContext *app)
 {
+  if (app->record_timer != 0) {
+    g_source_remove(app->record_timer);
+    app->record_timer = 0;
+  }
   g_clear_object(&app->main_win);
   g_clear_object(&app->global_actions);
   g_clear_object(&app->subtitle_actions);
@@ -512,6 +525,11 @@ stop_action_activate_cb(GtkAction *action, gpointer user_data)
   if (!clip_recorder_stop(app->recorder, &error)) {
     show_error(app, "Failed to stop recording/playback", &error);
   }
+
+  if (app->record_timer) {
+    g_source_remove(app->record_timer);
+    app->record_timer = 0;
+  }
   gtk_widget_set_state(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_NORMAL);
 }
 
@@ -598,13 +616,7 @@ static void
 stopped_cb(ClipRecorder *recorder, AppContext *app)
 {
   if (app->recorded_file && app->active_subtitle) {
-    GtkTreeIter iter;
     gchar *name = g_file_get_basename(app->recorded_file);
-    gint64 duration = clip_recorder_recorded_length(app->recorder);
-    if (gtk_tree_model_get_iter(GTK_TREE_MODEL(app->subtitle_store), &iter,
-				app->active_subtitle)) {
-      subtitle_store_set_file(app->subtitle_store, &iter, name, duration);
-    }
     g_free(name);
   }
   g_clear_object(&app->recorded_file);
@@ -614,6 +626,47 @@ stopped_cb(ClipRecorder *recorder, AppContext *app)
   select_next_subtitle(app);
 
   g_debug("Stopped");
+}
+
+static gboolean
+record_timeout (gpointer user_data) {
+  AppContext *app = user_data;
+  gtk_widget_set_state(GTK_WIDGET(app->subtitle_text_view),
+		       GTK_STATE_INSENSITIVE);
+  return FALSE;
+}
+
+static void
+record_power_cb(ClipRecorder *recorder, gdouble power , AppContext *app)
+{
+  /* g_debug("record_power_cb: %lf, %f, %f, %f", power, DEFAULT_SILENCE_LEVEL, DEFAULT_NORMAL_LEVEL, DEFAULT_TOP_LEVEL); */
+  if (power > DEFAULT_SILENCE_LEVEL) {
+    if (app->record_timer == 0) {
+      if (app->active_subtitle) {
+	GtkTreeIter iter;
+	if (gtk_tree_model_get_iter(GTK_TREE_MODEL(app->subtitle_store),
+				    &iter, app->active_subtitle)) {
+	  gint64 in;
+	  gint64 out;
+	  gtk_tree_model_get(GTK_TREE_MODEL(app->subtitle_store), &iter,
+			     SUBTITLE_STORE_COLUMN_IN, &in,
+			     SUBTITLE_STORE_COLUMN_OUT, &out, -1);
+	  app->record_timer = g_timeout_add((out - in)/1000000,
+					    record_timeout, app);
+	}
+      }
+    }
+    
+  }
+  gtk_widget_set_state(GTK_WIDGET(app->green_lamp),
+		       ((power > DEFAULT_SILENCE_LEVEL)
+			? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL));
+  gtk_widget_set_state(GTK_WIDGET(app->yellow_lamp),
+		       ((power > DEFAULT_NORMAL_LEVEL)
+			? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL));
+  gtk_widget_set_state(GTK_WIDGET(app->red_lamp),
+		       ((power > DEFAULT_TOP_LEVEL)
+			? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL));
 }
 
 G_MODULE_EXPORT void
@@ -881,6 +934,12 @@ create_main_window(AppContext *app, GError **err)
   app->subtitle_text_view = GTK_TEXT_VIEW(FIND_OBJECT("subtitle_textview"));
   g_assert(app->subtitle_text_view);
 
+  app->red_lamp = GTK_IMAGE(FIND_OBJECT("red_lamp"));
+  g_assert(app->red_lamp);
+  app->yellow_lamp = GTK_IMAGE(FIND_OBJECT("yellow_lamp"));
+  g_assert(app->red_lamp);
+  app->green_lamp = GTK_IMAGE(FIND_OBJECT("green_lamp"));
+  g_assert(app->green_lamp);
 #if GTK_CHECK_VERSION(3,0,0)
   {
     GdkRGBA color;
@@ -890,6 +949,12 @@ create_main_window(AppContext *app, GError **err)
     color.alpha = 1.0;
     gtk_widget_override_background_color(GTK_WIDGET(app->subtitle_text_view),
 					 GTK_STATE_FLAG_ACTIVE,
+					 &color);
+    color.red = 1.0;
+    color.green = 1.0;
+    color.blue = 0.5;
+    gtk_widget_override_background_color(GTK_WIDGET(app->subtitle_text_view),
+					 GTK_STATE_FLAG_INSENSITIVE,
 					 &color);
   }
 #else
@@ -902,7 +967,14 @@ create_main_window(AppContext *app, GError **err)
     gdk_colormap_alloc_color(colormap, &color, FALSE, TRUE);
     g_object_unref(colormap);
     gtk_widget_modify_base(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_ACTIVE,
-			 &color);
+			   &color);
+    color.red = 65535;
+    color.green = 65535;
+    color.blue = 32768;
+    gdk_colormap_alloc_color(colormap, &color, FALSE, TRUE);
+    g_object_unref(colormap);
+    gtk_widget_modify_base(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_INSENSITIVE,
+			   &color);
     
   }
 #endif
@@ -933,9 +1005,11 @@ static gboolean
 setup_recorder(AppContext *app, GError **error)
 {
   app->recorder = clip_recorder_new();
+  g_object_set(app->recorder, "trim-level", DEFAULT_SILENCE_LEVEL, NULL);
   g_signal_connect(app->recorder, "recording", (GCallback)recording_cb, app);
   g_signal_connect(app->recorder, "playing", (GCallback)playing_cb, app);
   g_signal_connect(app->recorder, "stopped", (GCallback)stopped_cb, app);
+  g_signal_connect(app->recorder, "power", (GCallback)record_power_cb, app);
   return TRUE;
 }
 
