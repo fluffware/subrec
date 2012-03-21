@@ -530,6 +530,7 @@ stop_action_activate_cb(GtkAction *action, gpointer user_data)
     g_source_remove(app->record_timer);
     app->record_timer = 0;
   }
+  gtk_widget_set_sensitive(GTK_WIDGET(app->subtitle_text_view), TRUE);
   gtk_widget_set_state(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_NORMAL);
 }
 
@@ -636,6 +637,7 @@ stopped_cb(ClipRecorder *recorder, AppContext *app)
 static gboolean
 record_timeout (gpointer user_data) {
   AppContext *app = user_data;
+  gtk_widget_set_sensitive(GTK_WIDGET(app->subtitle_text_view), FALSE);
   gtk_widget_set_state(GTK_WIDGET(app->subtitle_text_view),
 		       GTK_STATE_INSENSITIVE);
   return FALSE;
