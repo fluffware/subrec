@@ -616,7 +616,12 @@ static void
 stopped_cb(ClipRecorder *recorder, AppContext *app)
 {
   if (app->recorded_file && app->active_subtitle) {
+    GtkTreeIter iter;
     gchar *name = g_file_get_basename(app->recorded_file);
+    GstClockTimeDiff duration = clip_recorder_recorded_length(app->recorder);
+    if (gtk_tree_model_get_iter(GTK_TREE_MODEL(app->subtitle_store), &iter,                             app->active_subtitle)) {
+      subtitle_store_set_file(app->subtitle_store, &iter, name, duration);
+    }
     g_free(name);
   }
   g_clear_object(&app->recorded_file);

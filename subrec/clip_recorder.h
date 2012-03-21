@@ -60,4 +60,6 @@ gboolean clip_recorder_record(ClipRecorder *recorder, GFile *file,GError **err);
 gboolean clip_recorder_play(ClipRecorder *recorder, GFile *file, GError **err);
 gboolean clip_recorder_stop(ClipRecorder *recorder, GError **err);
 
+GstClockTimeDiff clip_recorder_recorded_length(ClipRecorder *recorder);
+
 #endif /* __CLIP_RECORDER_H__NQKIV1K2IA__ */

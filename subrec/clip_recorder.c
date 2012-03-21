@@ -294,7 +294,7 @@ bus_call (GstBus     *bus,
 	    recorder->active_pipeline = NULL;
 	    if (msg->src == (GstObject*)recorder->record_pipeline) {
 	      start_adjustment(recorder);
-	    } else if (msg->src == (GstObject*)recorder->adjust_pipeline) {
+	    } else {
 	      g_signal_emit(recorder, clip_recorder_signals[STOPPED], 0);
 	    }
 	  }
@@ -851,3 +851,7 @@ clip_recorder_stop(ClipRecorder *recorder, GError **err)
   return TRUE;
 }
 
+GstClockTimeDiff clip_recorder_recorded_length(ClipRecorder *recorder)
+{
+  return recorder->trim_end - recorder->trim_start;
+}
