@@ -483,6 +483,7 @@ get_adjust_pipeline(ClipRecorder *recorder, GError **err)
   GstBus *bus;
   GstElement *filesrc;
   GstElement *composition;
+  GstElement *high_pass;
   GstElement *amplify;
   GstElement *limit;
   GstElement *convert1;
@@ -528,6 +529,17 @@ get_adjust_pipeline(ClipRecorder *recorder, GError **err)
     }
     gst_bin_add(GST_BIN(pipeline), convert1);
 
+    high_pass = gst_element_factory_make ("audiocheblimit", "highpass");
+    if (!high_pass) {
+      g_set_error(err, CLIP_RECORDER_ERROR,
+		  CLIP_RECORDER_ERROR_CREATE_ELEMENT_FAILED,
+		  "Failed to create high pass filter");
+      gst_object_unref(pipeline);
+      return NULL;
+    }
+    g_object_set(high_pass, "mode", 1, "poles", 2, "cutoff", (gfloat)100, NULL);
+    gst_bin_add(GST_BIN(pipeline), high_pass);
+    
     amplify = gst_element_factory_make ("audioamplify", "amplify");
     if (!amplify) {
       g_set_error(err, CLIP_RECORDER_ERROR,
@@ -582,19 +594,12 @@ get_adjust_pipeline(ClipRecorder *recorder, GError **err)
     }
     gst_bin_add(GST_BIN(pipeline), filesink);
 
-#if 0
-    if (!gst_element_link(composition, amplify)) {
+
+    if (!gst_element_link_many(convert1, high_pass, amplify, limit,
+			       convert2, NULL)) {
       g_set_error(err, CLIP_RECORDER_ERROR,
 		  CLIP_RECORDER_ERROR_LINK_FAILED,
 		  "Failed to link adjust pipeline (first part)");
-       gst_object_unref(pipeline);
-       return NULL;
-    }
-#endif
-    if (!gst_element_link_many(convert1, amplify, limit, convert2, NULL)) {
-      g_set_error(err, CLIP_RECORDER_ERROR,
-		  CLIP_RECORDER_ERROR_LINK_FAILED,
-		  "Failed to link adjust pipeline (second part)");
       gst_object_unref(pipeline);
       return NULL;
     }
@@ -607,7 +612,7 @@ get_adjust_pipeline(ClipRecorder *recorder, GError **err)
       gst_caps_unref(output_filter);
       g_set_error(err, CLIP_RECORDER_ERROR,
 		  CLIP_RECORDER_ERROR_LINK_FAILED,
-		  "Failed to link adjust pipeline (third part)");
+		  "Failed to link adjust pipeline (second part)");
       gst_object_unref(pipeline);
       return NULL;
     }
