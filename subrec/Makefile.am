@@ -20,12 +20,15 @@ g_compat.c g_compat.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 
-ui_DATA= main_win.ui
+images = green_lamp_active.png green_lamp_normal.png \
+yellow_lamp_active.png yellow_lamp_normal.png \
+red_lamp_active.png red_lamp_normal.png
+ui_DATA= main_win.ui $(images)
 
 dir_config.h: @top_srcdir@/config.status
 	echo "#define UIDIR \"$(uidir)\"" > $@
 
-gui: main_win.ui
+gui: main_win.ui $(images)
 
 BUILT_SOURCES= dir_config.h
 

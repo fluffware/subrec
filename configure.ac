@@ -1,5 +1,5 @@
 AC_PREREQ(2.60)
-AC_INIT(subrec, [0.1])
+AC_INIT(subrec, [0.3])
 
 dnl versions of gstreamer and plugins-base
 GST_MAJORMINOR=0.10
