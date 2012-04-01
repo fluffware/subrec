@@ -18,12 +18,8 @@ LT_INIT
 AM_PATH_GLIB_2_0(,,,gmodule)
 
 HAVE_GTK3=no
-HAVE_GTK2=no
 AM_PATH_GTK_3_0(,[HAVE_GTK3=yes])
-if test x$HAVE_GTK3 == xno; then
-AM_PATH_GTK_2_0(,[HAVE_GTK2=yes])
 
-fi
 
 AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
 dnl Check for pkgconfig first

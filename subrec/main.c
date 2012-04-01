@@ -968,7 +968,7 @@ create_main_window(AppContext *app, GError **err)
   g_assert(app->red_lamp);
   app->green_lamp = GTK_IMAGE(FIND_OBJECT("green_lamp"));
   g_assert(app->green_lamp);
-#if GTK_CHECK_VERSION(3,0,0)
+
   {
     GdkRGBA color;
     color.red = 0.5;
@@ -985,27 +985,6 @@ create_main_window(AppContext *app, GError **err)
 					 GTK_STATE_FLAG_INSENSITIVE,
 					 &color);
   }
-#else
-  {
-    GdkColor color;
-    GdkColormap *colormap = gdk_colormap_get_system();
-    color.red = 32768;
-    color.green = 65535;
-    color.blue = 32768;
-    gdk_colormap_alloc_color(colormap, &color, FALSE, TRUE);
-    g_object_unref(colormap);
-    gtk_widget_modify_base(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_ACTIVE,
-			   &color);
-    color.red = 65535;
-    color.green = 65535;
-    color.blue = 32768;
-    gdk_colormap_alloc_color(colormap, &color, FALSE, TRUE);
-    g_object_unref(colormap);
-    gtk_widget_modify_base(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_INSENSITIVE,
-			   &color);
-    
-  }
-#endif
 
   {
     GtkAccelGroup *ag = gtk_accel_group_new();

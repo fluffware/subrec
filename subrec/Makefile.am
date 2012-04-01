@@ -17,8 +17,7 @@ subtitle_store_io.c subtitle_store_io.h \
 gtkcellrenderertime.c gtkcellrenderertime.h \
 time_string.c time_string.h \
 clip_recorder.c clip_recorder.h \
-unitspinbutton.c unitspinbutton.h \
-g_compat.c g_compat.h
+unitspinbutton.c unitspinbutton.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 

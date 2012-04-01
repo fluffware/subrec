@@ -39,7 +39,6 @@ get_range(GSettings *settings, const gchar *key, gdouble *low, gdouble *high)
   gchar *type_str;
   range = g_settings_get_range(settings, key);
   g_variant_get(range, "(sv)", &type_str, &limits);
-  g_debug("range type %s", type_str);
   if (strcmp("range", type_str) == 0) {
     GVariant *low_var;
     GVariant *high_var;
@@ -189,8 +188,6 @@ show_preferences_dialog(GtkWindow *parent)
 					      GTK_DIALOG_DESTROY_WITH_PARENT,
 					      GTK_STOCK_OK,
 					      GTK_RESPONSE_ACCEPT,
-					      GTK_STOCK_CANCEL,
-					      GTK_RESPONSE_CANCEL,
 					      NULL));
     gtk_window_set_default_size(GTK_WINDOW(preferences_dialog),500,400);
     content = gtk_dialog_get_content_area(preferences_dialog);
