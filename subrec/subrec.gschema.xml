@@ -11,27 +11,28 @@
       </description>
     </key>
     <key name="warning-level" type="d">
-      <default >0.1</default>
+      <default >0.001</default>
       <range min="0.00001" max="1.0"/>
       <summary>Warning level</summary>
       <description>
 	The yellow warning lamp is lit at this level
       </description>
     </key>
-     <key name="pre-silence" type="d">
-      <default >0.0</default>
-      <range min="0.0" max="1.0"/>
+     <key name="pre-silence" type="t">
+      <default >0</default>
+      <range min="0" max="1000000000"/>
       <summary>Silence before</summary>
       <description>
-	Length of silence before clip
+	Length of silence before clip (ns)
       </description>
     </key>
-    <key name="post-silence" type="d">
-      <default >0.0</default>
-      <range min="0.0" max="1.0"/>
+
+    <key name="post-silence" type="t">
+      <default >0</default>
+      <range min="0" max="1000000000"/>
       <summary>Silence after</summary>
       <description>
-	Length of silence after clip
+	Length of silence after clip (ns)
       </description>
     </key>
     

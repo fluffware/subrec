@@ -13,9 +13,11 @@ unit_spin_button_output(GtkSpinButton *spin)
   GtkAdjustment *adj;
   gchar *text;
   double value;
+  int digits;
   adj = gtk_spin_button_get_adjustment (spin);
+  digits = gtk_spin_button_get_digits(spin);
   value = gtk_adjustment_get_value (adj);
-  text = g_strdup_printf ("%.1lf %s", value, UNIT_SPIN_BUTTON(spin)->unit);
+  text = g_strdup_printf ("%.*lf %s", digits, value, UNIT_SPIN_BUTTON(spin)->unit);
   gtk_entry_set_text (GTK_ENTRY (spin), text);
   g_free (text);
   return TRUE;

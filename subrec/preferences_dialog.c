@@ -18,6 +18,18 @@ preferences_dialog_response(GtkDialog *dialog,
   gtk_widget_hide(GTK_WIDGET(dialog));
 }
 
+static double
+get_numeric(GVariant *variant)
+{
+  const GVariantType *type = g_variant_get_type(variant);
+  if (g_variant_type_equal(type, G_VARIANT_TYPE_DOUBLE)) {
+    return g_variant_get_double(variant);
+  } else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT64)) {
+    return g_variant_get_uint64(variant);
+  }
+  return 0.0;
+}
+    
 static void
 get_range(GSettings *settings, const gchar *key, gdouble *low, gdouble *high)
 {
@@ -28,66 +40,116 @@ get_range(GSettings *settings, const gchar *key, gdouble *low, gdouble *high)
   g_variant_get(range, "(sv)", &type_str, &limits);
   g_debug("range type %s", type_str);
   if (strcmp("range", type_str) == 0) {
-    g_variant_get(limits, "(dd)", low, high);
+    GVariant *low_var;
+    GVariant *high_var;
+    g_variant_get(limits, "(@?@?)", &low_var, &high_var);
+    *low = get_numeric(low_var);
+    g_variant_unref(low_var);
+    *high = get_numeric(high_var);
+    g_variant_unref(high_var);
   }
   g_variant_unref(limits);
   g_variant_unref(range);
 }
 
-static gboolean
-dB_get_mapping(GValue *value, GVariant *variant, gpointer user_data)
+typedef struct  {
+  const gchar *unit;
+  gboolean log;
+  double scale; /* From setting to widget */
+  double climb_rate;
+  gint digits;
+} SettingMapping;
+
+static double
+get_mapping(double v, const SettingMapping *mapping)
 {
-  gdouble dB;
-  gdouble lin = g_variant_get_double(variant);
-  dB = 10.0*log10(lin);
-  g_value_set_double(value, dB);
+  if (mapping->log) {
+    v = log10(v);
+  }
+  v = mapping->scale * v;
+  return v;
+}
+
+static gboolean
+spin_get_mapping(GValue *value, GVariant *variant, gpointer user_data)
+{
+  SettingMapping *map = user_data;
+  double v;
+  v = get_numeric(variant);
+  v = get_mapping(v, map);
+  g_value_set_double(value, v);
   return TRUE;
 }
 
-static GVariant *
-dB_set_maapping(const GValue *value, const GVariantType *expected_type,
-		gpointer user_data)
+static double
+set_mapping(double v, const SettingMapping *mapping)
 {
-  gdouble dB;
-  gdouble lin;
-  dB = g_value_get_double(value);
-  lin = pow(10, dB / 10.0);
-  if (!g_variant_type_equal(expected_type, G_VARIANT_TYPE_DOUBLE)) {
-    return NULL;
+  v = v / mapping->scale;
+  if (mapping->log) {
+    v = pow(10, v);
   }
-  return g_variant_new_double (lin);
+  return v;
 }
 
+static GVariant *
+spin_set_mapping(const GValue *value, const GVariantType *expected_type,
+		gpointer user_data)
+{
+  const SettingMapping *map = user_data;
+  double v;
+  v = g_value_get_double(value);
+  v = set_mapping(v, map);
+  if (g_variant_type_equal(expected_type, G_VARIANT_TYPE_DOUBLE)) {
+    return g_variant_new_double (v);
+  } else if (g_variant_type_equal(expected_type, G_VARIANT_TYPE_UINT64)) {
+    return g_variant_new_uint64((guint64)round(v));
+  } else {
+    return NULL;
+  }
+}
 
 static GtkWidget *
 create_settings_unit_spin_box(GSettings *settings, const gchar *key,
-			      const gchar *unit, gboolean dB)
+			      const SettingMapping *mapping)
 {
   GtkWidget *spin;
   GtkAdjustment *adj;
   gdouble low = 0.0;
   gdouble high = 1.0;
   get_range(settings, key, &low, &high);
-  if (!dB) {
-    adj = gtk_adjustment_new(low, low, high, 0.1, 1.0, 0);
-    spin = unit_spin_button_new(adj, 1, 1, unit);
-    g_settings_bind(settings, key, spin, "value",
-		    G_SETTINGS_BIND_GET | G_SETTINGS_BIND_SET);
-  } else {
-    low = 10.0*log10(low);
-    high = 10.0*log10(high);
-    adj = gtk_adjustment_new(low, low, high, 0.1, 1.0, 0);
-    spin = unit_spin_button_new(adj, 1, 1, unit);
-    g_settings_bind_with_mapping(settings, key, spin, "value",
-				 G_SETTINGS_BIND_GET | G_SETTINGS_BIND_SET,
-				 dB_get_mapping, dB_set_maapping, NULL, NULL);
-  }
+  low = get_mapping(low, mapping);
+  high = get_mapping(high, mapping);
+  adj = gtk_adjustment_new(low, low, high,
+			   mapping->climb_rate, mapping->climb_rate * 10,
+			   0);
+  spin = unit_spin_button_new(adj, mapping->climb_rate, mapping->digits,
+			      mapping->unit);
+  g_settings_bind_with_mapping(settings, key, spin, "value",
+			       G_SETTINGS_BIND_GET | G_SETTINGS_BIND_SET,
+			       spin_get_mapping, spin_set_mapping,
+			       (gpointer)mapping, NULL);
   return spin;
 }
 
+const static SettingMapping dB_mapping =
+  {
+    "dB",
+    TRUE, 10,
+    0.1,
+    1
+  };
+
+const static SettingMapping ns_to_s_mapping =
+  {
+    "s",
+    FALSE, 1e-9,
+    0.01,
+    2
+  };
+    
 static void
 add_setting(GSettings *settings, const gchar *key, const gchar *label_str,
-	    const gchar *unit, gboolean dB,  GtkTable *table, gint row)
+	    const SettingMapping *mapping, GtkTable *table, gint row)
 {
   GtkWidget *label;
   GtkWidget *spin;
@@ -101,7 +163,7 @@ add_setting(GSettings *settings, const gchar *key, const gchar *label_str,
 		    3, 0);
   gtk_widget_show(label);
 
-  spin = create_settings_unit_spin_box(settings, key, unit, dB);
+  spin = create_settings_unit_spin_box(settings, key, mapping);
   gtk_table_attach (table, spin,
 		    1,2, row, row + 1,
 		    GTK_EXPAND | GTK_FILL,
@@ -139,16 +201,16 @@ show_preferences_dialog(GtkWindow *parent)
 				gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled)));
     table = gtk_table_new(4,2, FALSE);
     add_setting(settings, "silence-level", "Silence level",
-		"dB", TRUE,
+		&dB_mapping,
 		GTK_TABLE(table),0);
     add_setting(settings, "warning-level", "Warning level",
-		"dB", TRUE,
+		&dB_mapping,
 		GTK_TABLE(table),1);
     add_setting(settings, "pre-silence", "Silence before",
-		"s", FALSE,
+		&ns_to_s_mapping,
 		GTK_TABLE(table),2);
     add_setting(settings, "post-silence", "Silence after",
-		"s", FALSE,
+		&ns_to_s_mapping,
 		GTK_TABLE(table),3);
     gtk_container_add(GTK_CONTAINER(viewport), table); 
     gtk_container_add(GTK_CONTAINER(scrolled), viewport); 
