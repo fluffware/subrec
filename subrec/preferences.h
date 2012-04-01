@@ -1,0 +1,5 @@
+#define PREF_SCHEMA "se.fluffware.apps.subrec"
+#define PREF_SILENCE_LEVEL "silence-level"
+#define PREF_NORMAL_LEVEL "normal-level"
+#define PREF_PRE_SILENCE "pre-silence"
+#define PREF_POST_SILENCE "post-silence"
