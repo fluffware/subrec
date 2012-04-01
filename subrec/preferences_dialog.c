@@ -1,4 +1,5 @@
 #include "preferences_dialog.h"
+#include "preferences.h"
 #include <unitspinbutton.h>
 #include <string.h>
 #include <math.h>
@@ -176,7 +177,7 @@ void
 show_preferences_dialog(GtkWindow *parent)
 {
   if (!preferences_dialog) {
-    GSettings *settings = g_settings_new("se.fluffware.apps.subrec");
+    GSettings *settings = g_settings_new(PREF_SCHEMA);
     GtkWidget *content;
     GtkWidget *viewport;
     GtkWidget *scrolled;
@@ -200,16 +201,16 @@ show_preferences_dialog(GtkWindow *parent)
     viewport = gtk_viewport_new(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled)),
 				gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled)));
     table = gtk_table_new(4,2, FALSE);
-    add_setting(settings, "silence-level", "Silence level",
+    add_setting(settings, PREF_SILENCE_LEVEL, "Silence level",
 		&dB_mapping,
 		GTK_TABLE(table),0);
-    add_setting(settings, "warning-level", "Warning level",
+    add_setting(settings, PREF_NORMAL_LEVEL, "Normal level",
 		&dB_mapping,
 		GTK_TABLE(table),1);
-    add_setting(settings, "pre-silence", "Silence before",
+    add_setting(settings, PREF_PRE_SILENCE, "Silence before",
 		&ns_to_s_mapping,
 		GTK_TABLE(table),2);
-    add_setting(settings, "post-silence", "Silence after",
+    add_setting(settings, PREF_POST_SILENCE, "Silence after",
 		&ns_to_s_mapping,
 		GTK_TABLE(table),3);
     gtk_container_add(GTK_CONTAINER(viewport), table); 

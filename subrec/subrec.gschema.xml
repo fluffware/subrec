@@ -10,12 +10,12 @@
 	Power below this level i considered silence
       </description>
     </key>
-    <key name="warning-level" type="d">
+    <key name="normal-level" type="d">
       <default >0.001</default>
       <range min="0.00001" max="1.0"/>
-      <summary>Warning level</summary>
+      <summary>Normal level</summary>
       <description>
-	The yellow warning lamp is lit at this level
+	Expected unadjusted recording level
       </description>
     </key>
      <key name="pre-silence" type="t">

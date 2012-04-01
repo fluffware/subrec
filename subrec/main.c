@@ -13,6 +13,8 @@
 #include <gtkcellrenderertime.h>
 #include <clip_recorder.h>
 #include <about_dialog.h>
+#include <preferences_dialog.h>
+#include <preferences.h>
 #include <string.h>
 #include <math.h>
 
@@ -46,8 +48,6 @@ quit_action_cb(GtkAction *action, gpointer user_data)
 }
 
 #define dB(x) (powf(10.0,((x)/10.0)))
-#define DEFAULT_SILENCE_LEVEL dB(-30)
-#define DEFAULT_NORMAL_LEVEL dB(-10)
 #define DEFAULT_TOP_LEVEL dB(-3)
 
 typedef struct
@@ -77,7 +77,9 @@ typedef struct
   ClipRecorder *recorder;
   guint record_timer;
   GFile *recorded_file;
+  double normal_level;
   GFile *working_directory;
+  GSettings *settings;
 } AppContext;
 
 static void
@@ -104,6 +106,7 @@ app_init(AppContext *app)
   app->global_actions = NULL;
   app->subtitle_actions = NULL;
   app->record_actions = NULL;
+  app->settings = NULL;
 }
 
 static void
@@ -129,6 +132,7 @@ app_destroy(AppContext *app)
   g_clear_object(&app->recorder);
   g_clear_object(&app->recorded_file);
   g_clear_object(&app->working_directory);
+  g_clear_object(&app->settings);
 }
 
 static void
@@ -592,6 +596,7 @@ record_action_activate_cb(GtkAction *action, gpointer user_data)
     show_error(app, "Failed to start recording", &error);
   }
   g_clear_error(&error);
+  app->normal_level =  g_settings_get_double(app->settings, PREF_NORMAL_LEVEL);
   app->recorded_file = file;
   gtk_widget_set_state(GTK_WIDGET(app->subtitle_text_view), GTK_STATE_ACTIVE);
 }
@@ -657,7 +662,7 @@ static void
 record_power_cb(ClipRecorder *recorder, gdouble power , AppContext *app)
 {
   /* g_debug("record_power_cb: %lf, %f, %f, %f", power, DEFAULT_SILENCE_LEVEL, DEFAULT_NORMAL_LEVEL, DEFAULT_TOP_LEVEL); */
-  if (power > DEFAULT_SILENCE_LEVEL) {
+  if (power > clip_recorder_get_trim_level(recorder)) {
     if (app->record_timer == 0) {
       if (app->active_subtitle) {
 	GtkTreeIter iter;
@@ -676,10 +681,10 @@ record_power_cb(ClipRecorder *recorder, gdouble power , AppContext *app)
     
   }
   gtk_widget_set_state(GTK_WIDGET(app->green_lamp),
-		       ((power > DEFAULT_SILENCE_LEVEL)
+		       ((power > clip_recorder_get_trim_level(recorder))
 			? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL));
   gtk_widget_set_state(GTK_WIDGET(app->yellow_lamp),
-		       ((power > DEFAULT_NORMAL_LEVEL)
+		       ((power > app->normal_level)
 			? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL));
   gtk_widget_set_state(GTK_WIDGET(app->red_lamp),
 		       ((power > DEFAULT_TOP_LEVEL)
@@ -1028,7 +1033,13 @@ static gboolean
 setup_recorder(AppContext *app, GError **error)
 {
   app->recorder = clip_recorder_new();
-  g_object_set(app->recorder, "trim-level", DEFAULT_SILENCE_LEVEL, NULL);
+  g_settings_bind(app->settings, PREF_SILENCE_LEVEL, app->recorder,
+		  "trim-level", G_SETTINGS_BIND_GET);
+  g_settings_bind(app->settings, PREF_PRE_SILENCE, app->recorder,
+		  "pre-silence", G_SETTINGS_BIND_GET);
+  g_settings_bind(app->settings, PREF_POST_SILENCE, app->recorder,
+		  "post-silence", G_SETTINGS_BIND_GET);
+  
   g_signal_connect(app->recorder, "recording", (GCallback)recording_cb, app);
   g_signal_connect(app->recorder, "playing", (GCallback)playing_cb, app);
   g_signal_connect(app->recorder, "stopped", (GCallback)stopped_cb, app);
@@ -1082,6 +1093,8 @@ main(int argc, char **argv)
   app_init(&app);
   gst_init(&argc, &argv);
   gtk_init(&argc, &argv);
+  app.settings = g_settings_new(PREF_SCHEMA);
+  g_assert(app.settings);
   if (!setup_recorder(&app, &error)) {
     app_destroy(&app);
     g_error("%s", error->message);

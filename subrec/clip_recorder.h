@@ -33,6 +33,8 @@ struct _ClipRecorder
   GstPipeline *active_pipeline;
 
   gdouble trim_level;
+  GstClockTimeDiff pre_silence;
+  GstClockTimeDiff post_silence;
 
   /* Analysis results */
   GstClockTime trim_start;
@@ -61,5 +63,6 @@ gboolean clip_recorder_play(ClipRecorder *recorder, GFile *file, GError **err);
 gboolean clip_recorder_stop(ClipRecorder *recorder, GError **err);
 
 GstClockTimeDiff clip_recorder_recorded_length(ClipRecorder *recorder);
+double clip_recorder_get_trim_level(ClipRecorder *recorder);
 
 #endif /* __CLIP_RECORDER_H__NQKIV1K2IA__ */

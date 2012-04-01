@@ -36,11 +36,15 @@ clip_recorder_finalize(GObject *obj)
 }
 
 #define DEFAULT_TRIM_LEVEL 0.1
+#define DEFAULT_PRE_SILENCE 0
+#define DEFAULT_POST_SILENCE 0
 
 enum
 {
   PROP_0 = 0,
   PROP_TRIM_LEVEL,
+  PROP_PRE_SILENCE,
+  PROP_POST_SILENCE,
 };
 
 enum {
@@ -149,6 +153,26 @@ clip_recorder_class_init(ClipRecorderClass *obj_class)
 				G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   
   g_object_class_install_property(gobject_class, PROP_TRIM_LEVEL, pspec);
+
+  /* pre-silence */
+  pspec =  g_param_spec_int64 ("pre-silence",
+				"Silence at beginning of clip",
+				"Given as nanoseconds.",
+				0, 5000000000,
+				DEFAULT_PRE_SILENCE,
+				G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  
+  g_object_class_install_property(gobject_class, PROP_PRE_SILENCE, pspec);
+
+  /* post-silence */
+  pspec =  g_param_spec_int64 ("post-silence",
+				"Silence at end of clip",
+				"Given as nanoseconds.",
+				0, 5000000000,
+				DEFAULT_POST_SILENCE,
+				G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  
+  g_object_class_install_property(gobject_class, PROP_POST_SILENCE, pspec);
 }
 
 
@@ -180,6 +204,13 @@ clip_recorder_set_property (GObject * object, guint prop_id,
       g_object_unref(analysis);
     }
     break;
+  case PROP_PRE_SILENCE:
+    recorder->pre_silence = g_value_get_int64 (value);
+    break;
+  case PROP_POST_SILENCE:
+    recorder->post_silence = g_value_get_int64 (value);
+    break;
+    
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     break;
@@ -197,7 +228,12 @@ clip_recorder_get_property (GObject * object, guint prop_id,
   case PROP_TRIM_LEVEL:
     g_value_set_double (value, recorder->trim_level);
     break;
-    
+    case PROP_PRE_SILENCE:
+      g_value_set_int64 (value, recorder->pre_silence);
+      break;
+  case PROP_POST_SILENCE:
+    g_value_set_int64 (value, recorder->post_silence);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     break;
@@ -215,8 +251,9 @@ start_adjustment(ClipRecorder *recorder)
   GstPipeline *adjust;
   GstElement *filesrc;
   GstElement *amplifier;
-  GstClockTimeDiff duration = recorder->trim_end - recorder->trim_start;
+  GstClockTimeDiff duration;
   gfloat amplification;
+  duration = recorder->trim_end - recorder->trim_start;
   adjust = get_adjust_pipeline(recorder, NULL);
   g_assert(adjust);
   filesrc = gst_bin_get_by_name(GST_BIN(adjust), "filesrc");
@@ -323,12 +360,26 @@ bus_call (GstBus     *bus,
 	  g_signal_emit(recorder, clip_recorder_signals[POWER], 0, power);
 	}
       } else if (strcmp(name, "analysis-message") == 0) {
+	GstFormat format = GST_FORMAT_TIME;
+	GstClockTime raw_end;
 	gst_structure_get_double (msg->structure, "loudness",
 				  &recorder->loudness);
 	gst_structure_get_clock_time (msg->structure, "trim-start",
 				      &recorder->trim_start);
 	gst_structure_get_clock_time (msg->structure, "trim-end",
 				      &recorder->trim_end);
+	if (recorder->pre_silence > recorder->trim_start) {
+	  recorder->trim_start = 0;
+	} else {
+	  recorder->trim_start -= recorder->pre_silence;
+	}
+	g_assert(gst_element_query_position(GST_ELEMENT(msg->src),
+					    &format, &raw_end));
+	if (recorder->post_silence + recorder->trim_end > raw_end) {
+	  recorder->trim_end = raw_end;
+	} else {
+	  recorder->trim_end += recorder->post_silence;
+	}
 	
       }
     }
@@ -863,4 +914,10 @@ clip_recorder_stop(ClipRecorder *recorder, GError **err)
 GstClockTimeDiff clip_recorder_recorded_length(ClipRecorder *recorder)
 {
   return recorder->trim_end - recorder->trim_start;
+}
+
+double
+clip_recorder_get_trim_level(ClipRecorder *recorder)
+{
+  return recorder->trim_level;
 }
