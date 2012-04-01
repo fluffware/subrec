@@ -705,6 +705,12 @@ about_action_activate_cb(GtkAction *action, AppContext *app)
   show_about_dialog(GTK_WINDOW(app->main_win));
 }
 
+G_MODULE_EXPORT void
+preferences_action_activate_cb(GtkAction *action, AppContext *app)
+{
+  show_preferences_dialog(GTK_WINDOW(app->main_win));
+}
+
 static GObject *
 find_object(GtkBuilder *builder, const gchar *name, GError **err)
 {

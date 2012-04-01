@@ -19,6 +19,7 @@ packing_list_finalize(GObject *object)
   PackingList *list = PACKING_LIST(object);
   g_tree_unref(list->assets);
   g_free(list->id);
+  G_OBJECT_CLASS (packing_list_parent_class)->finalize (object);
 }
 
 static void

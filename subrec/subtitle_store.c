@@ -13,6 +13,12 @@ subtitle_store_error_quark()
   return error_quark;
 }
 
+static void
+model_init(gpointer g_iface, gpointer iface_data);
+
+G_DEFINE_TYPE_WITH_CODE(SubtitleStore, subtitle_store, G_TYPE_OBJECT,	\
+			G_IMPLEMENT_INTERFACE(GTK_TYPE_TREE_MODEL,model_init))
+
 enum {
   PROP_0 = 0,
   PROP_NO_AUDIO_COLOR,
@@ -80,6 +86,7 @@ subtitle_store_finalize(GObject *object)
   g_free(store->ok_color);
   g_free(store->warning_color);
   g_free(store->critical_color);
+  G_OBJECT_CLASS (subtitle_store_parent_class)->finalize (object);
 }
 
 
@@ -711,8 +718,7 @@ subtitle_store_set_file(SubtitleStore *store, GtkTreeIter *iter,
   return TRUE;
 }
 
-G_DEFINE_TYPE_WITH_CODE(SubtitleStore, subtitle_store, G_TYPE_OBJECT,\
-			G_IMPLEMENT_INTERFACE(GTK_TYPE_TREE_MODEL,model_init))
+
 
 static void
 unlink_item(SubtitleStoreItem *item)

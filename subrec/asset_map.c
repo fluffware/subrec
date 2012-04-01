@@ -28,6 +28,7 @@ asset_map_finalize(GObject *object)
   g_tree_unref(map->map);
   g_free(map->id);
   if (map->map_file) g_object_unref(map->map_file);
+  G_OBJECT_CLASS (asset_map_parent_class)->finalize (object);
 }
 
 static void

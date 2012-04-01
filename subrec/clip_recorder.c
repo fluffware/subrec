@@ -32,6 +32,7 @@ clip_recorder_finalize(GObject *obj)
 			  GST_STATE_NULL);
     g_clear_object(&recorder->adjust_pipeline);
   }
+  G_OBJECT_CLASS (clip_recorder_parent_class)->finalize (obj);
 }
 
 #define DEFAULT_TRIM_LEVEL 0.1

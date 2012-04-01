@@ -6,6 +6,7 @@ AM_CFLAGS="-std=c99"
 bin_PROGRAMS = subrec
 subrec_SOURCES = main.c  builderutils.c \
 about_dialog.c about_dialog.h \
+preferences_dialog.c preferences_dialog.h \
 asset_map.c asset_map.h \
 xml_tree_parser.c xml_tree_parser.h \
 packing_list.c packing_list.h \
@@ -16,6 +17,7 @@ subtitle_store_io.c subtitle_store_io.h \
 gtkcellrenderertime.c gtkcellrenderertime.h \
 time_string.c time_string.h \
 clip_recorder.c clip_recorder.h \
+unitspinbutton.c unitspinbutton.h \
 g_compat.c g_compat.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
@@ -30,6 +32,12 @@ dir_config.h: @top_srcdir@/config.status
 
 gui: main_win.ui $(images)
 
+gsettings_SCHEMAS = subrec.gschema.xml
+
+@GSETTINGS_RULES@
+
 BUILT_SOURCES= dir_config.h
 
 CLEANFILES = dir_config.h
+
+EXTRA_DIST=subrec.gschema.xml $(images)

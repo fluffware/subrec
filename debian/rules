@@ -37,7 +37,9 @@ binary-arch: build $(top_dir)/debian/configure.stamp
 
 binary-indep:
 	dh_testdir
+	(export GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1
 	make install-data
+	)
 
 binary: binary-arch binary-indep
 	dh_shlibdeps

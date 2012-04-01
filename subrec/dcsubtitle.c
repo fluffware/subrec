@@ -42,6 +42,7 @@ dcsubtitle_finalize(GObject *object)
   g_list_free_full(sub->spots, (GDestroyNotify)destroy_spot);
   g_free(sub->id);
   g_free(sub->language);
+  G_OBJECT_CLASS (dcsubtitle_parent_class)->finalize (object);
 }
 
 static void

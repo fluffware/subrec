@@ -43,6 +43,7 @@ composition_playlist_finalize(GObject *object)
   CompositionPlaylist *cpl = COMPOSITION_PLAYLIST(object);
   g_list_free_full(cpl->reels, (GDestroyNotify)destroy_reel);
   g_free(cpl->id);
+  G_OBJECT_CLASS (composition_playlist_parent_class)->finalize (object);
 }
 
 static void
