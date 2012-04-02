@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Subrec
+GenericName=Subtitle Recorder
+Comment=Records sound clips of subtitles
+Icon=subrec
+TryExec=subrec
+Exec=subrec
+Terminal=false
+Categories=Audio

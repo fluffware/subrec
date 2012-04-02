@@ -1,4 +1,11 @@
 uidir=@datadir@/subrec/ui
+appdir=@datadir@/applications
+icondir=@datadir@/icons
+themedir=$(icondir)/hicolor
+app48x48dir=$(themedir)/48x48/apps
+app32x32dir=$(themedir)/32x32/apps
+app22x22dir=$(themedir)/22x22/apps
+
 INCLUDES= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPPFLAGS@
 
 AM_CFLAGS="-std=c99"
@@ -21,10 +28,16 @@ unitspinbutton.c unitspinbutton.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 
-images = green_lamp_active.png green_lamp_normal.png \
-yellow_lamp_active.png yellow_lamp_normal.png \
-red_lamp_active.png red_lamp_normal.png
+images = images/green_lamp_active.png images/green_lamp_normal.png \
+images/yellow_lamp_active.png images/yellow_lamp_normal.png \
+images/red_lamp_active.png images/red_lamp_normal.png
 ui_DATA= main_win.ui $(images)
+
+app_DATA=subrec.desktop
+
+app48x48_DATA=images/48x48/subrec.png
+app32x32_DATA=images/32x32/subrec.png
+app22x22_DATA=images/22x22/subrec.png
 
 dir_config.h: @top_srcdir@/config.status
 	echo "#define UIDIR \"$(uidir)\"" > $@
