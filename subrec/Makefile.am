@@ -42,14 +42,19 @@ app22x22_DATA=images/22x22/subrec.png
 dir_config.h: @top_srcdir@/config.status
 	echo "#define UIDIR \"$(uidir)\"" > $@
 
+version_info.h: FORCE
+	echo "#define PKG_VERSION \"$(VERSION)\"" > $@
+	echo "#define GIT_COMMIT \"`git rev-parse HEAD`\"" >> $@
 gui: main_win.ui $(images)
+
+.PHONY: FORCE gui
 
 gsettings_SCHEMAS = subrec.gschema.xml
 
 @GSETTINGS_RULES@
 
-BUILT_SOURCES= dir_config.h
+BUILT_SOURCES= dir_config.h version_info.h
 
-CLEANFILES = dir_config.h
+CLEANFILES = dir_config.h version_info.h
 
 EXTRA_DIST=subrec.gschema.xml $(images)

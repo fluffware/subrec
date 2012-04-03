@@ -1,8 +1,17 @@
 #include "about_dialog.h"
+#include <version_info.h>
+
+static const gchar title_text[] = 
+  "subrec - Record audio for subtitles\n";
+
+static const gchar version_text[] = 
+  "Package version: " PKG_VERSION "\n"
+  "Git commit: " GIT_COMMIT "\n";
+
+static const gchar author_text[] =
+  "Written by Simon Berg <ksb@users.sourceforge.net>\n\n";
 
 static const gchar license_text[] = 
-  "subrec - Record audio for subtitles\n"
-  "Written by Simon Berg <ksb@users.sourceforge.net>\n\n"
   "Copyright (C) 2012 Simon Berg\n\n"
   "This program is free software: you can redistribute it and/or modify "
   "it under the terms of the GNU General Public License as published by "
@@ -40,6 +49,9 @@ show_about_dialog(GtkWindow *parent)
     GtkWidget *scrolled;
     GtkTextBuffer *buffer;
     GtkWidget *view;
+    GtkTextIter iter;
+    GtkTextTag *bold_tag;
+    GtkTextTag *big_tag;
     about_dialog =
       GTK_DIALOG(gtk_dialog_new_with_buttons ("About this program",
 					      parent,
@@ -49,8 +61,26 @@ show_about_dialog(GtkWindow *parent)
 					      NULL));
     gtk_window_set_default_size(GTK_WINDOW(about_dialog),500,400);
     content = gtk_dialog_get_content_area(about_dialog);
+
     buffer = gtk_text_buffer_new(NULL);
-    gtk_text_buffer_set_text(buffer, license_text, -1);
+    bold_tag = gtk_text_buffer_create_tag(buffer, "bold",
+					  "weight-set", TRUE,
+					  "weight",  PANGO_WEIGHT_BOLD,
+					  NULL);
+    big_tag = gtk_text_buffer_create_tag(buffer, "big",
+					 "scale-set", TRUE,
+					 "scale",  1.5,
+					 NULL);
+    gtk_text_buffer_get_start_iter(buffer, &iter);
+    
+    gtk_text_buffer_insert_with_tags(buffer, &iter, title_text, -1,
+				     bold_tag, big_tag, NULL);
+    gtk_text_buffer_insert_with_tags(buffer, &iter, version_text, -1,
+				     bold_tag, NULL);
+    
+    gtk_text_buffer_insert(buffer, &iter, author_text, -1);
+    gtk_text_buffer_insert(buffer, &iter, license_text, -1);
+
     view = gtk_text_view_new_with_buffer (buffer);
     g_object_set(view,"editable", FALSE, "wrap-mode", GTK_WRAP_WORD,
 		 "cursor-visible", FALSE, NULL);
