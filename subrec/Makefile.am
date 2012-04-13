@@ -24,20 +24,21 @@ subtitle_store_io.c subtitle_store_io.h \
 gtkcellrenderertime.c gtkcellrenderertime.h \
 time_string.c time_string.h \
 clip_recorder.c clip_recorder.h \
-unitspinbutton.c unitspinbutton.h
+unitspinbutton.c unitspinbutton.h \
+save_sequence.c save_sequence.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 
-images = images/green_lamp_active.png images/green_lamp_normal.png \
-images/yellow_lamp_active.png images/yellow_lamp_normal.png \
-images/red_lamp_active.png images/red_lamp_normal.png
-ui_DATA= main_win.ui $(images)
+images = green_lamp_active.png green_lamp_normal.png \
+yellow_lamp_active.png yellow_lamp_normal.png \
+red_lamp_active.png red_lamp_normal.png
+ui_DATA= ui/main_win.ui $(images:%=ui/%)
 
 app_DATA=subrec.desktop
 
-app48x48_DATA=images/48x48/subrec.png
-app32x32_DATA=images/32x32/subrec.png
-app22x22_DATA=images/22x22/subrec.png
+app48x48_DATA=images/hicolor/48x48/subrec.png
+app32x32_DATA=images/hicolor/32x32/subrec.png
+app22x22_DATA=images/hicolor/22x22/subrec.png
 
 dir_config.h: @top_srcdir@/config.status
 	echo "#define UIDIR \"$(uidir)\"" > $@
@@ -45,9 +46,9 @@ dir_config.h: @top_srcdir@/config.status
 version_info.h: FORCE
 	echo "#define PKG_VERSION \"$(VERSION)\"" > $@
 	echo "#define GIT_COMMIT \"`git rev-parse HEAD`\"" >> $@
-gui: main_win.ui $(images)
 
-.PHONY: FORCE gui
+
+.PHONY: FORCE
 
 gsettings_SCHEMAS = subrec.gschema.xml
 
@@ -57,4 +58,4 @@ BUILT_SOURCES= dir_config.h version_info.h
 
 CLEANFILES = dir_config.h version_info.h
 
-EXTRA_DIST=subrec.gschema.xml $(images)
+EXTRA_DIST=subrec.gschema.xml

@@ -91,8 +91,10 @@ subtitle_store_finalize(GObject *object)
 
 
 static GType column_types[] = {
-  G_TYPE_INT64, /* in_ms */
-  G_TYPE_INT64, /* out_ms */
+  G_TYPE_INT64, /* in_ns */
+  G_TYPE_INT64, /* out_ns */
+  G_TYPE_INT64, /* global in_ns */
+  G_TYPE_INT64, /* global out_ns */
   G_TYPE_STRING, /* ID */
   G_TYPE_STRING, /* text */
   G_TYPE_STRING, /* filename */
@@ -198,6 +200,28 @@ get_in_ns(SubtitleStoreItem *item)
     return item->in_ns;
   }
 }
+static gint64
+get_in_base_ns(SubtitleStoreItem *item)
+{
+  if (item->parent) {
+    if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)) {
+      return get_in_base_ns(item->parent);
+    } else {
+      return get_in_base_ns(item->parent) + get_in_ns(item);
+    }
+  } else {
+    return get_in_ns(item);
+  }
+}
+static gint64
+get_in_global_ns(SubtitleStoreItem *item)
+{
+  if (item->parent) {
+    return get_in_base_ns(item->parent) + get_in_ns(item);
+  } else {
+    return get_in_ns(item);
+  }
+}
 
 static gint64
 get_out_ns(SubtitleStoreItem *item)
@@ -212,6 +236,29 @@ get_out_ns(SubtitleStoreItem *item)
   }
 }
 
+static gint64
+get_out_base_ns(SubtitleStoreItem *item)
+{
+  if (item->parent) {
+    if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)) {
+      return get_out_base_ns(item->parent);
+    } else {
+      return get_out_base_ns(item->parent) + get_out_ns(item);
+    }
+  } else {
+    return get_out_ns(item);
+  }
+}
+  
+static gint64
+get_out_global_ns(SubtitleStoreItem *item)
+{
+  if (item->parent) {
+    return get_out_base_ns(item->parent) + get_out_ns(item);
+  } else {
+    return get_out_ns(item);
+  }
+}
 static void
 model_get_value(GtkTreeModel *tree_model, GtkTreeIter  *iter, gint column,
 		GValue *value)
@@ -228,6 +275,15 @@ model_get_value(GtkTreeModel *tree_model, GtkTreeIter  *iter, gint column,
     g_value_init(value, G_TYPE_INT64);
     g_value_set_int64(value, get_out_ns(item));
     break;
+  case SUBTITLE_STORE_COLUMN_GLOBAL_IN:
+    g_value_init(value, G_TYPE_INT64);
+    g_value_set_int64(value, get_in_global_ns(item));
+    break;
+  case SUBTITLE_STORE_COLUMN_GLOBAL_OUT:
+    g_value_init(value, G_TYPE_INT64);
+    g_value_set_int64(value, get_out_global_ns(item));
+    break;
+    
   case SUBTITLE_STORE_COLUMN_ID:
     g_value_init(value, G_TYPE_STRING);
     g_value_set_string(value, item->id);

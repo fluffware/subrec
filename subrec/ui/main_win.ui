@@ -29,6 +29,11 @@
     <property name="stock_id">gtk-add</property>
     <signal name="activate" handler="expand_all_action_activate_cb" swapped="no"/>
   </object>
+  <object class="GtkAction" id="export_audio_action">
+    <property name="label" translatable="yes">E_xport audio</property>
+    <property name="stock_id">gtk-save</property>
+    <signal name="activate" handler="export_audio_action_activate_cb" swapped="no"/>
+  </object>
   <object class="GtkAction" id="open_assetmap_action">
     <property name="label" translatable="yes">_Open ASSETMAP</property>
     <property name="stock_id">gtk-open</property>
@@ -46,6 +51,16 @@
     <property name="short_label" translatable="yes">Prefs</property>
     <property name="stock_id">gtk-preferences</property>
     <signal name="activate" handler="preferences_action_activate_cb" swapped="no"/>
+  </object>
+  <object class="GtkAdjustment" id="prefs_pre_silence_adjustment">
+    <property name="upper">1</property>
+    <property name="step_increment">0.01</property>
+    <property name="page_increment">0.10000000000000001</property>
+  </object>
+  <object class="GtkAdjustment" id="prefs_silence_value_adjustment">
+    <property name="lower">-90.010000000000005</property>
+    <property name="step_increment">0.10000000000000001</property>
+    <property name="page_increment">1</property>
   </object>
   <object class="GtkAction" id="quit_action">
     <property name="label" translatable="yes">_Quit</property>
@@ -65,7 +80,7 @@
   </object>
   <object class="GtkAction" id="set_working_directory_action">
     <property name="label" translatable="yes">Set _working directory</property>
-    <property name="stock_id">gtk-save-as</property>
+    <property name="stock_id">gtk-open</property>
     <signal name="activate" handler="set_working_directory_action_activate_cb" swapped="no"/>
   </object>
   <object class="GtkAction" id="stop_clip">
@@ -74,19 +89,12 @@
     <property name="stock_id">gtk-media-stop</property>
     <signal name="activate" handler="stop_action_activate_cb" swapped="no"/>
   </object>
-  <object class="GtkAdjustment" id="prefs_pre_silence_adjustment">
-    <property name="upper">1</property>
-    <property name="step_increment">0.01</property>
-    <property name="page_increment">0.10000000000000001</property>
-  </object>
-  <object class="GtkAdjustment" id="prefs_silence_value_adjustment">
-    <property name="lower">-90.010000000000005</property>
-    <property name="step_increment">0.10000000000000001</property>
-    <property name="page_increment">1</property>
-  </object>
   <object class="GtkTextBuffer" id="subtitle_text"/>
   <object class="GtkWindow" id="subrec">
     <property name="can_focus">False</property>
+    <property name="window_position">center</property>
+    <property name="default_width">800</property>
+    <property name="default_height">600</property>
     <signal name="destroy" handler="main_win_destroyed" swapped="no"/>
     <child>
       <object class="GtkVBox" id="winbox">
@@ -108,6 +116,15 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
+                      <object class="GtkImageMenuItem" id="setworkdirmenuitem">
+                        <property name="related_action">set_working_directory_action</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkImageMenuItem" id="openassetmapmenuitem">
                         <property name="related_action">open_assetmap_action</property>
                         <property name="visible">True</property>
@@ -126,8 +143,8 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="saveasmenuitem">
-                        <property name="related_action">set_working_directory_action</property>
+                      <object class="GtkImageMenuItem" id="exportaudiomenuitem">
+                        <property name="related_action">export_audio_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -170,6 +187,7 @@
                         <property name="related_action">preferences_action</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
                     </child>

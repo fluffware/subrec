@@ -15,14 +15,14 @@
 #include <about_dialog.h>
 #include <preferences_dialog.h>
 #include <preferences.h>
+#include <save_sequence.h>
 #include <string.h>
 #include <math.h>
 
 #define SUBTITLE_LIST_FILENAME "SUBTITLES.xml"
 #define SUBREC_ERROR (subrec_error_quark())
 enum {
-  SUBREC_ERROR_CREATE_ELEMENT_FAILED = 1,
-  SUBREC_ERROR_LINK_FAILED,
+  SUBREC_ERROR_NO_WORK_DIR = 1,
   SUBREC_ERROR_CREATE_WIDGET_FAILED
 };
 
@@ -395,27 +395,44 @@ save_list(AppContext *app)
   }
 }
 
+static gboolean
+set_working_directory(AppContext *app, GFile *wd, GError **err)
+{
+  gboolean ret;
+  GFile *file;
+  if (!g_file_query_exists(wd, NULL)) {
+    g_set_error(err, SUBREC_ERROR, SUBREC_ERROR_NO_WORK_DIR,
+		"Working directory not found");
+    return FALSE;
+  }
+  app->working_directory = wd;
+  g_object_ref(app->working_directory);
+  file = get_list_file(app);
+  subtitle_store_remove(app->subtitle_store, NULL);
+  ret = subtitle_store_io_load(app->subtitle_store, file, err);
+  g_object_unref(file);
+  if (!ret)  {
+    app->working_directory = NULL;
+  }
+  return ret;
+}
+
 static void
 working_directory_dialog_response(GtkDialog *dialog,
 		     gint response_id, AppContext *app)
 {
   gtk_widget_hide(GTK_WIDGET(dialog));
   if (response_id == GTK_RESPONSE_ACCEPT) {
-    GFile *load_file;
-    app->working_directory=gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
-    load_file = get_list_file(app);
-    if (g_file_query_exists(load_file, NULL)) {
-      GError *error = NULL;
-      gboolean ret;
-      subtitle_store_remove(app->subtitle_store, NULL);
-      ret = subtitle_store_io_load(app->subtitle_store, load_file, &error);
-      g_object_unref(load_file);
-      if (!ret) {
-	show_error(app, "Failed to save subtitle list", &error);
-	return;
-      }
-    } else {
-      g_object_unref(load_file);
+    GError *error = NULL;
+    gboolean ret;
+    GFile *wd;
+    wd = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+
+    ret = set_working_directory(app, wd, &error);
+    g_object_unref(wd);
+    if (!ret) {
+      show_error(app, "Failed to save subtitle list", &error);
+      return;
     }
   }
 }
@@ -429,6 +446,33 @@ save_action_activate_cb(GtkAction *action, AppContext *app)
     return;
   }
   save_list(app);
+}
+
+G_MODULE_EXPORT void
+export_audio_action_activate_cb(GtkAction *action, AppContext *app)
+{
+  GtkTreeIter iter;
+  if (!app->working_directory) {
+    show_error_msg(app, "No working directory set",
+		   "Select a directory using the menu");
+    return;
+  }
+  if (gtk_tree_model_get_iter_first (GTK_TREE_MODEL(app->subtitle_store),
+				     &iter)) {
+    GError *err = NULL;
+    GstClockTime out;
+    GtkTreeIter last = iter;
+    while(gtk_tree_model_iter_next(GTK_TREE_MODEL(app->subtitle_store),
+				   &iter)) {
+      last = iter;
+    }
+    gtk_tree_model_get(GTK_TREE_MODEL(app->subtitle_store), &last,
+		       SUBTITLE_STORE_COLUMN_GLOBAL_OUT, &out, -1);
+    if (!save_sequence(app->subtitle_store, 0, out, &err)) {
+      	show_error(app, "Failed to save audio sequence", &err);
+	return;
+    }
+  }
 }
 
 G_MODULE_EXPORT void
@@ -1063,15 +1107,38 @@ print_widget_tree(GtkWidget *widget, guint indent)
 }
 #endif
 
+static gchar *work_dir = NULL;
+
+static GOptionEntry options[] =
+  {
+    {"working-directory", 'w',
+     0,
+     G_OPTION_ARG_FILENAME,
+     &work_dir,
+     "Working directory",
+   NULL
+    },
+    {NULL}
+  };
+
 int
 main(int argc, char **argv)
 {
+  GOptionContext *oc;
   GError *error = NULL;
   AppContext app;
-  LIBXML_TEST_VERSION
+  LIBXML_TEST_VERSION;
+  g_thread_init(NULL);
   app_init(&app);
-  gst_init(&argc, &argv);
-  gtk_init(&argc, &argv);
+  oc = g_option_context_new(" - Record subtitles");
+  g_option_context_add_group (oc, gtk_get_option_group (TRUE));
+  g_option_context_add_group (oc, gst_init_get_option_group ());
+  g_option_context_add_main_entries (oc, options, NULL);
+  if (!g_option_context_parse (oc, &argc, &argv, &error)) {
+    g_warning("Failed to parse options: %s", error->message);
+    return EXIT_FAILURE;
+  }
+  g_option_context_free (oc);
   app.settings = g_settings_new(PREF_SCHEMA);
   g_assert(app.settings);
   if (!setup_recorder(&app, &error)) {
@@ -1082,7 +1149,13 @@ main(int argc, char **argv)
     app_destroy(&app);
     g_error("%s", error->message);
   }
-
+  if (work_dir) {
+    GFile *file = g_file_new_for_path(work_dir);
+    if (!set_working_directory(&app, file, &error)) {
+      show_error(&app, "Failed to set working directory", &error);
+    }
+    g_object_unref(file);
+  }
 #if USE_STYLE
   print_widget_tree(app.main_win, 0);
   setup_style(&app);
