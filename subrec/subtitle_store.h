@@ -111,7 +111,7 @@ gboolean
 subtitle_store_set_file(SubtitleStore *store, GtkTreeIter *iter,
 			const gchar *filename, gint64 duration);
 
-gchar *
+const gchar *
 subtitle_store_get_filename(SubtitleStore *store, GtkTreeIter *iter);
 
 gint64

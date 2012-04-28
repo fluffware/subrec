@@ -201,13 +201,14 @@ get_in_ns(SubtitleStoreItem *item)
   }
 }
 static gint64
-get_in_base_ns(SubtitleStoreItem *item)
+get_base_ns(SubtitleStoreItem *item)
 {
+  if (!item) return 0;
   if (item->parent) {
     if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)) {
-      return get_in_base_ns(item->parent);
+      return get_base_ns(item->parent);
     } else {
-      return get_in_base_ns(item->parent) + get_in_ns(item);
+      return get_base_ns(item->parent) + get_in_ns(item);
     }
   } else {
     return get_in_ns(item);
@@ -216,11 +217,7 @@ get_in_base_ns(SubtitleStoreItem *item)
 static gint64
 get_in_global_ns(SubtitleStoreItem *item)
 {
-  if (item->parent) {
-    return get_in_base_ns(item->parent) + get_in_ns(item);
-  } else {
-    return get_in_ns(item);
-  }
+  return get_base_ns(item->parent) + get_in_ns(item);
 }
 
 static gint64
@@ -237,28 +234,11 @@ get_out_ns(SubtitleStoreItem *item)
 }
 
 static gint64
-get_out_base_ns(SubtitleStoreItem *item)
-{
-  if (item->parent) {
-    if ((item->flags & SUBTITLE_STORE_TIME_FROM_CHILDREN)) {
-      return get_out_base_ns(item->parent);
-    } else {
-      return get_out_base_ns(item->parent) + get_out_ns(item);
-    }
-  } else {
-    return get_out_ns(item);
-  }
-}
-  
-static gint64
 get_out_global_ns(SubtitleStoreItem *item)
 {
-  if (item->parent) {
-    return get_out_base_ns(item->parent) + get_out_ns(item);
-  } else {
-    return get_out_ns(item);
-  }
+  return get_base_ns(item->parent) + get_out_ns(item);
 }
+
 static void
 model_get_value(GtkTreeModel *tree_model, GtkTreeIter  *iter, gint column,
 		GValue *value)
@@ -840,7 +820,7 @@ subtitle_store_remove(SubtitleStore *store, GtkTreeIter *iter)
   }
 }
 
-gchar *
+const gchar *
 subtitle_store_get_filename(SubtitleStore *store, GtkTreeIter *iter)
 {
   SubtitleStoreItem *item = ITER_ITEM(iter);

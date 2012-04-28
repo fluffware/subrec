@@ -45,7 +45,7 @@ save_subtitles(SubtitleStore *store, GtkTreeIter *iter,
     gchar *id;
     gchar *text;
     gchar *text_esc;
-    gchar *file;
+    const gchar *file;
     gint64 duration;
     GtkTreeModel *files;
     GtkTreeIter child;
