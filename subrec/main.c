@@ -375,8 +375,8 @@ static GFile *
 get_list_file(AppContext *app)
 {
   if (!app->working_directory) return NULL;
-  return g_file_resolve_relative_path(app->working_directory,
-				      SUBTITLE_LIST_FILENAME);
+  return g_file_get_child(app->working_directory,
+			  SUBTITLE_LIST_FILENAME);
 }
 
 static void
@@ -398,7 +398,8 @@ save_list(AppContext *app)
 static gboolean
 set_working_directory(AppContext *app, GFile *wd, GError **err)
 {
-  gboolean ret;
+  GFile *subtitle_file;
+  gboolean ret = TRUE;
   GFile *file;
   if (!g_file_query_exists(wd, NULL)) {
     g_set_error(err, SUBREC_ERROR, SUBREC_ERROR_NO_WORK_DIR,
@@ -409,11 +410,15 @@ set_working_directory(AppContext *app, GFile *wd, GError **err)
   g_object_ref(app->working_directory);
   file = get_list_file(app);
   subtitle_store_remove(app->subtitle_store, NULL);
-  ret = subtitle_store_io_load(app->subtitle_store, file, err);
-  g_object_unref(file);
-  if (!ret)  {
-    app->working_directory = NULL;
+  subtitle_file = g_file_get_child (wd, "SUBTITLES.xml");
+  if (g_file_query_exists(subtitle_file, NULL)) {
+    ret = subtitle_store_io_load(app->subtitle_store, file, err);
+    g_object_unref(file);
+    if (!ret)  {
+      app->working_directory = NULL;
+    }
   }
+  g_object_unref(subtitle_file);
   return ret;
 }
 
@@ -468,7 +473,8 @@ export_audio_action_activate_cb(GtkAction *action, AppContext *app)
     }
     gtk_tree_model_get(GTK_TREE_MODEL(app->subtitle_store), &last,
 		       SUBTITLE_STORE_COLUMN_GLOBAL_OUT, &out, -1);
-    if (!save_sequence(app->subtitle_store, 0, out, &err)) {
+    if (!save_sequence(app->subtitle_store, app->working_directory, 0, out,
+		       &err)) {
       	show_error(app, "Failed to save audio sequence", &err);
 	return;
     }
@@ -524,7 +530,7 @@ play_action_activate_cb(GtkAction *action, gpointer user_data)
   AppContext *app = user_data;
   GError *error = NULL;
   GtkTreeIter iter;
-  gchar *filename;
+  const gchar *filename;
   GFile *file;
   if (!app->active_subtitle) return;
   if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(app->subtitle_store), &iter,
@@ -532,7 +538,7 @@ play_action_activate_cb(GtkAction *action, gpointer user_data)
   filename = subtitle_store_get_filename(app->subtitle_store, &iter);
   if (!filename) return;
   if (!app->working_directory) return;
-  file = g_file_resolve_relative_path(app->working_directory, filename);
+  file = g_file_get_child(app->working_directory, filename);
   if (!clip_recorder_play(app->recorder, file, &error)) {
     show_error(app, "Failed to start playback", &error);
   }
