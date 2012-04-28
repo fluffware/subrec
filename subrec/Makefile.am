@@ -10,7 +10,8 @@ INCLUDES= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPP
 
 AM_CFLAGS="-std=c99"
 
-bin_PROGRAMS = subrec
+bin_PROGRAMS = subrec sequence_test
+
 subrec_SOURCES = main.c  builderutils.c \
 about_dialog.c about_dialog.h \
 preferences_dialog.c preferences_dialog.h \
@@ -25,9 +26,13 @@ gtkcellrenderertime.c gtkcellrenderertime.h \
 time_string.c time_string.h \
 clip_recorder.c clip_recorder.h \
 unitspinbutton.c unitspinbutton.h \
-save_sequence.c save_sequence.h
+blocked_seek.c blocked_seek.h \
+save_sequence.c save_sequence.h 
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
+
+sequence_test_SOURCES = sequence_test.c blocked_seek.c blocked_seek.h
+sequence_test_LDADD = @GLIB_LIBS@ @GST_APP_LIBS@
 
 images = green_lamp_active.png green_lamp_normal.png \
 yellow_lamp_active.png yellow_lamp_normal.png \

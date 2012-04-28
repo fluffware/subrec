@@ -15,7 +15,7 @@ AC_PROG_CC
 AS_LIBTOOL(GST, 2, 0, 0)
 LT_INIT
 
-AM_PATH_GLIB_2_0(,,,gmodule)
+AM_PATH_GLIB_2_0(,,,gmodule gio)
 
 HAVE_GTK3=no
 AM_PATH_GTK_3_0(,[HAVE_GTK3=yes])
