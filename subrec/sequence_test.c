@@ -302,6 +302,7 @@ set_element_file(GstBin *parent, const gchar *name, const char *filename,
   g_assert(element);
   g_object_set(element, "file", file, NULL);
   g_object_unref(file);
+  g_object_unref(element);
   return TRUE;
 }
 

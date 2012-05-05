@@ -57,6 +57,9 @@ composition_playlist_get_property(GObject    *object,
   case PROP_ID:
     g_value_set_string (value, cpl->id);
     break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
   }
 }
 

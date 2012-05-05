@@ -27,7 +27,8 @@ time_string.c time_string.h \
 clip_recorder.c clip_recorder.h \
 unitspinbutton.c unitspinbutton.h \
 blocked_seek.c blocked_seek.h \
-save_sequence.c save_sequence.h 
+save_sequence.c save_sequence.h \
+buffer_counter.c buffer_counter.h
 
 subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 

@@ -79,6 +79,7 @@ typedef struct
   GFile *recorded_file;
   double normal_level;
   GFile *working_directory;
+  SaveSequence *save_sequence;
   GSettings *settings;
 } AppContext;
 
@@ -103,6 +104,7 @@ app_init(AppContext *app)
   app->record_timer = 0;
   app->recorded_file = NULL;
   app->working_directory = NULL;
+  app->save_sequence = NULL;
   app->global_actions = NULL;
   app->subtitle_actions = NULL;
   app->record_actions = NULL;
@@ -130,6 +132,7 @@ app_destroy(AppContext *app)
   }
   g_clear_object(&app->subtitle_text_buffer);
   g_clear_object(&app->recorder);
+  g_clear_object(&app->save_sequence);
   g_clear_object(&app->recorded_file);
   g_clear_object(&app->working_directory);
   g_clear_object(&app->settings);
@@ -291,7 +294,8 @@ load_dialog_response(GtkDialog *dialog,
 	    } else {
 	      reel_id++;
 	    }
-	    duration = asset->duration * asset->edit_rate.denom * 1000000000LL / asset->edit_rate.num;
+	    duration = (asset->duration * asset->edit_rate.denom * 1000000000LL
+			+ asset->edit_rate.num / 2) / asset->edit_rate.num;
 	    subtitle_store_insert(app->subtitle_store,
 				  reel_pos, reel_pos + duration,
 				  reel_id,
@@ -464,20 +468,33 @@ export_audio_action_activate_cb(GtkAction *action, AppContext *app)
   }
   if (gtk_tree_model_get_iter_first (GTK_TREE_MODEL(app->subtitle_store),
 				     &iter)) {
+    GFile *save_file;
     GError *err = NULL;
     GstClockTime out;
     GtkTreeIter last = iter;
+    if (!app->save_sequence) {
+      app->save_sequence = save_sequence_new(&err);
+      if (!app->save_sequence) {
+	show_error(app, "Failed create sequence saving object", &err);
+	return;
+      }
+    }
     while(gtk_tree_model_iter_next(GTK_TREE_MODEL(app->subtitle_store),
 				   &iter)) {
       last = iter;
     }
     gtk_tree_model_get(GTK_TREE_MODEL(app->subtitle_store), &last,
 		       SUBTITLE_STORE_COLUMN_GLOBAL_OUT, &out, -1);
-    if (!save_sequence(app->subtitle_store, app->working_directory, 0, out,
+    save_file = g_file_new_for_path("/home/ksb/tmp/seq.wav");
+    if (!save_sequence(app->save_sequence, save_file,
+		       app->subtitle_store, app->working_directory,
+		       0, out,
 		       &err)) {
-      	show_error(app, "Failed to save audio sequence", &err);
-	return;
+      g_object_unref(save_file);
+      show_error(app, "Failed to save audio sequence", &err);
+      return;
     }
+    g_object_unref(save_file);
   }
 }
 

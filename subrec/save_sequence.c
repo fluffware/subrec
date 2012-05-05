@@ -1,5 +1,8 @@
 #include "save_sequence.h"
 #include <time_string.h>
+#include <buffer_counter.h>
+
+#define SAMPLE_RATE 48000
 
 GQuark
 save_sequence_error_quark()
@@ -10,119 +13,242 @@ save_sequence_error_quark()
   return error_quark;
 }
 
-typedef struct _SequenceBuildContext
+G_DEFINE_TYPE (SaveSequence, save_sequence, G_TYPE_OBJECT)
+enum {
+  PROP_0 = 0,
+  PROP_WORK_DIR,
+  PROP_SUBTITLE_STORE,
+  PROP_LAST
+};
+
+static void
+save_sequence_finalize(GObject *object)
 {
-  SubtitleStore *subtitles;
-  GstClockTime start;
-  GstClockTime end;
-  GstElement *sequence;
-  GFile *working_directory;
-} SequenceBuildContext;
+  SaveSequence *sseq = SAVE_SEQUENCE(object);
+  if (sseq->pipeline) {
+    gst_element_set_state(sseq->silence_src, GST_STATE_NULL);
+    gst_element_set_state(sseq->file_src_bin, GST_STATE_NULL);
+    gst_element_set_state(sseq->pipeline, GST_STATE_NULL);
+  }
+  if (sseq->blocked_seek) {
+    blocked_seek_destroy(sseq->blocked_seek);
+    sseq->blocked_seek = NULL;
+  }
+  g_clear_object(&sseq->pipeline);
+  g_clear_object(&sseq->working_directory);
+  g_clear_object(&sseq->subtitle_store);
+  G_OBJECT_CLASS (save_sequence_parent_class)->finalize (object);
+}
+
+static void
+save_sequence_get_property(GObject    *object,
+				  guint       property_id,
+				  GValue     *value,
+				  GParamSpec *pspec)
+{
+  SaveSequence *sseq = SAVE_SEQUENCE(object);
+  switch(property_id) {
+  case PROP_WORK_DIR:
+    g_value_set_object (value, sseq->working_directory);
+    break;
+  case PROP_SUBTITLE_STORE:
+    g_value_set_object (value, sseq->subtitle_store);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+save_sequence_set_property(GObject * object, guint property_id,
+			    const GValue * value, GParamSpec * pspec)
+{
+  SaveSequence *sseq = SAVE_SEQUENCE(object);
+  switch(property_id) {
+  case PROP_WORK_DIR:
+    sseq->working_directory = g_value_get_object (value);
+    g_object_ref(sseq->working_directory);
+    break;
+  case PROP_SUBTITLE_STORE:
+    sseq->subtitle_store = g_value_get_object (value);
+    g_object_ref(sseq->subtitle_store);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+save_sequence_class_init(SaveSequenceClass *g_class)
+{
+  GParamSpec *pspec;
+  GObjectClass *gobject_class = G_OBJECT_CLASS (g_class);
+  gobject_class->finalize = save_sequence_finalize;
+  gobject_class->get_property = save_sequence_get_property;
+  gobject_class->set_property = save_sequence_set_property;
+
+  pspec = g_param_spec_object ("work-dir",
+                               "wd",
+                               "Directory where audio files are found",
+			       G_TYPE_FILE,
+                               G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class, PROP_WORK_DIR, pspec);
   
+  pspec = g_param_spec_object ("subtitle-store",
+			       "subtitle-store",
+                               "Sequence to save",
+			       SUBTITLE_STORE_TYPE,
+                               G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class, PROP_SUBTITLE_STORE, pspec);
+
+
+}
+
 static gboolean
-build_sequence_children(SequenceBuildContext *ctxt, GtkTreeIter *iter,
-			GError **err)
+next_or_up(SaveSequence *sseq)
 {
-  do {
-    GtkTreeIter child;
-    if (gtk_tree_model_iter_children (GTK_TREE_MODEL(ctxt->subtitles),
-				      &child, iter)) {
-      if (!build_sequence_children(ctxt, &child,err)) {
-	return FALSE;
-      }
-    } else {
-      GstElement *src;
-      GstClockTime in;
-      GstClockTime out;
-      GstClockTimeDiff duration;
-      const gchar *filename;
-      GFile *file;
-      char *uri;
-      gtk_tree_model_get(GTK_TREE_MODEL(ctxt->subtitles), iter,
-			 SUBTITLE_STORE_COLUMN_GLOBAL_IN, &in,
-			 SUBTITLE_STORE_COLUMN_GLOBAL_OUT, &out,
-			 SUBTITLE_STORE_COLUMN_FILE_DURATION, &duration,
-			 -1);
-#if 0
-      {
-	gchar in_str[TIME_STRING_MIN_LEN];
-	gchar out_str[TIME_STRING_MIN_LEN];
-	time_string_format(out_str, TIME_STRING_MIN_LEN, out);
-	time_string_format(in_str, TIME_STRING_MIN_LEN, in);
-	g_debug("%s-%s", in_str ,out_str);
-      }
-#endif
-      filename = subtitle_store_get_filename(ctxt->subtitles, iter);
-      if (filename) {
-	file = g_file_get_child(ctxt->working_directory, filename);
-	if (!g_file_query_exists(file, NULL)) {
-	  g_set_error(err, SAVE_SEQUENCE_ERROR,
-		      SAVE_SEQUENCE_ERROR_FILE_NOT_FOUND,
-		      "No audiofile named %s", g_file_get_path(file));
-	  g_object_unref(file);
-	  return FALSE;
-	}
-	src = gst_element_factory_make ("gnlurisource", NULL);
-	if (!src) {
-	  g_set_error(err, SAVE_SEQUENCE_ERROR,
-		      SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
-		      "Failed to create URI-source");
-	  g_object_unref(file);
-	  return FALSE;
-	}
-	gst_bin_add(GST_BIN(ctxt->sequence), src);
-	uri = g_file_get_uri(file);
-	g_object_unref(file);
-	g_object_set(src, "uri", uri,
-		     "media-start", (GstClockTime)0,
-		     "media-duration", duration,
-		     "start", in,
-		     "duration", duration,
-		     NULL);
-	g_free(uri);
-#if 0
-	{
-	  char *uri;
-	  GstClockTime start;
-	  GstClockTime duration;
-	  g_object_get(src, "uri", &uri, "start", &start,
-		       "duration", &duration, NULL);
-	  g_debug("URI %s", uri);
-	  g_free(uri);
-	  {
-	    gchar in_str[TIME_STRING_MIN_LEN];
-	    gchar out_str[TIME_STRING_MIN_LEN];
-	    time_string_format(out_str, TIME_STRING_MIN_LEN, duration);
-	    time_string_format(in_str, TIME_STRING_MIN_LEN, start);
-	    g_debug("%s+'%s", in_str ,out_str);
-	  }
-	}
-#endif
-      }
+  GtkTreeIter iter = sseq->next_pos;
+  while (!gtk_tree_model_iter_next(GTK_TREE_MODEL(sseq->subtitle_store),
+				    &sseq->next_pos)) {
+    if (sseq->depth == 0) return FALSE;
+    if (!gtk_tree_model_iter_parent(GTK_TREE_MODEL(sseq->subtitle_store),
+				    &sseq->next_pos, &iter)) {
+      return FALSE;
     }
-  } while(gtk_tree_model_iter_next(GTK_TREE_MODEL(ctxt->subtitles), iter));
+    sseq->depth--;
+    iter = sseq->next_pos;
+  }
   return TRUE;
 }
 
 static gboolean
-build_sequence(SequenceBuildContext *ctxt,
-	       GError **err)
+find_valid_subtitle(SaveSequence *sseq)
 {
-  GtkTreeIter top;
-  if (!gtk_tree_model_get_iter_first(GTK_TREE_MODEL(ctxt->subtitles), &top))
-    return TRUE;
-  return build_sequence_children(ctxt, &top, err);
-
+  GtkTreeIter child;
+  while(TRUE) {
+    if (gtk_tree_model_iter_children (GTK_TREE_MODEL(sseq->subtitle_store),
+				      &child, &sseq->next_pos)) {
+      sseq->next_pos = child;
+      sseq->depth++;
+    } else if (subtitle_store_get_filename(sseq->subtitle_store,
+					   &sseq->next_pos)) {
+      return TRUE;
+    } else {
+      if (!next_or_up(sseq)) return FALSE;
+    }
+  }
 }
-static void
-pad_added (GstElement *element, GstPad *new_pad, gpointer user_data)
+
+static BufferCounter *buffer_counter = NULL;
+
+static gboolean
+next_file(SaveSequence *sseq, GError **err)
 {
-  GstPadLinkReturn link_ret;
-  GstPad *sink_pad = (GstPad*)user_data;
-  g_debug("Got new pad");
-  link_ret = gst_pad_link(new_pad, sink_pad);
-  if (link_ret != GST_PAD_LINK_OK) {
-    g_warning("Linking sequence to output failed: %d", link_ret);
+  GstSeekFlags seek_flags;
+  GstState state;
+  GstState pending;
+  GstPad *input_src_pad;
+  GstClockTime in;
+  GstClockTimeDiff duration;
+  if (sseq->active_src) {
+    gst_element_set_state(sseq->active_src, GST_STATE_PAUSED);
+    gst_element_get_state(sseq->active_src, &state, &pending, GST_CLOCK_TIME_NONE);
+    gst_element_unlink(sseq->active_src, sseq->output_element);
+    gst_element_set_state(sseq->active_src, GST_STATE_READY);
+    gst_element_get_state(sseq->active_src, &state, &pending, GST_CLOCK_TIME_NONE);
+  }
+  {
+    
+    g_debug("Stream pos: %lld, %lld samples", buffer_counter->duration, buffer_counter->bytes / 2);
+    g_debug("Current pos: %lld ns, %lld samples", sseq->next_time,
+	    sseq->next_time * SAMPLE_RATE / GST_SECOND);
+
+  }
+  if (sseq->last_pos) {
+    if (sseq->next_time > sseq->end_time) {
+      g_set_error(err, SAVE_SEQUENCE_ERROR,
+		  SAVE_SEQUENCE_ERROR_INVALID_SEQUENCE,
+		  "End position less than current position");
+      return FALSE;
+    }
+    sseq->active_src = sseq->silence_src;
+    duration = sseq->end_time - sseq->next_time;
+  } else {
+    gtk_tree_model_get(GTK_TREE_MODEL(sseq->subtitle_store), &sseq->next_pos,
+		       SUBTITLE_STORE_COLUMN_GLOBAL_IN, &in,
+		       SUBTITLE_STORE_COLUMN_FILE_DURATION, &duration,
+		       -1);
+    
+    if (in > sseq->next_time) {
+      sseq->active_src = sseq->silence_src;
+      duration = in - sseq->next_time;
+    } else if (in == sseq->next_time) {
+      const gchar *filename;
+      GFile *file;
+      sseq->active_src = sseq->file_src_bin;
+      filename = subtitle_store_get_filename(sseq->subtitle_store,
+					     &sseq->next_pos);
+      
+      file = g_file_get_child(sseq->working_directory, filename);
+      
+      
+      g_object_set(sseq->file_src, "file", file, NULL);
+      g_object_unref(file);
+      sseq->last_pos = !(next_or_up(sseq) && find_valid_subtitle(sseq));
+    } else {
+      g_set_error(err, SAVE_SEQUENCE_ERROR,
+		  SAVE_SEQUENCE_ERROR_INVALID_SEQUENCE,
+		  "Next in position less than current position");
+      return FALSE;
+    }
+  }
+
+  /* Round to an even number of samples */
+  g_debug("Duration: %lld", duration);
+  duration = (((duration * SAMPLE_RATE + GST_SECOND/2) / GST_SECOND) * GST_SECOND) /SAMPLE_RATE;
+  g_debug("Duration (rounded): %lld", duration);
+  input_src_pad = gst_element_get_static_pad(sseq->active_src, "src");
+  seek_flags = GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH;
+  
+  /* Use segmented seek unless it's the last file in the sequence */
+  if (sseq->next_time + duration < sseq->end_time) {
+    seek_flags |= GST_SEEK_FLAG_SEGMENT;
+  }
+  blocked_seek_start(sseq->blocked_seek, sseq->active_src, input_src_pad,
+		     seek_flags,
+		     GST_SEEK_TYPE_SET, 0,
+		     GST_SEEK_TYPE_SET, duration);
+  g_object_unref(input_src_pad);
+  sseq->next_time += duration;
+  gst_element_link(sseq->active_src, sseq->output_element);
+
+
+		     
+  gst_element_set_state(sseq->active_src, GST_STATE_PLAYING);
+  
+  
+  return TRUE;
+}
+
+static void
+stop_pipeline(SaveSequence *sseq)
+{
+  if (sseq->pipeline) {
+    gst_element_set_state(sseq->silence_src, GST_STATE_NULL);
+    gst_element_set_state(sseq->file_src_bin, GST_STATE_NULL);
+    gst_element_set_state(sseq->pipeline, GST_STATE_NULL);
+  }
+  sseq->active_src = NULL;
+}
+
+static void
+set_ghost_target(GstElement *element, GstPad *new_pad, gpointer user_data)
+{
+  GstPad *ghost_pad = user_data;
+  if (!gst_ghost_pad_set_target (GST_GHOST_PAD(ghost_pad), new_pad)) {
+    g_warning("Failed to set target for ghost pad");
   }
 }
 
@@ -131,26 +257,65 @@ bus_call (GstBus     *bus,
 	  GstMessage *msg,
 	  gpointer    data)
 {
-  /* SequenceBuildContext *ctxt = data; */
-  /* g_debug("bus_call: %s", GST_MESSAGE_TYPE_NAME(msg));  */
+  SaveSequence *sseq = data;
+  g_debug("bus_call: %s", GST_MESSAGE_TYPE_NAME(msg));
   switch (GST_MESSAGE_TYPE (msg)) {
   case GST_MESSAGE_EOS:
     g_debug ("End-of-stream");
-    return FALSE;
+    stop_pipeline(sseq);
+    return TRUE;
   case GST_MESSAGE_ERROR: {
     GError *err = NULL;
     gchar *debug = NULL;
  
     gst_message_parse_error (msg, &err, &debug);
-
+    g_warning("Pipeline: %s", err->message);
     g_error_free (err);
     
     if (debug) {
       g_debug ("Debug details: %s\n", debug);
       g_free (debug);
     }
-    return FALSE;
+    stop_pipeline(sseq);
+    return TRUE;
   }
+  case GST_MESSAGE_SEGMENT_DONE:
+    {
+      GstFormat format;
+      gint64 pos;
+      gst_message_parse_segment_done(msg, &format, &pos);
+      g_debug("Segment done %lld", pos);
+      {
+	GError *err = NULL;
+	if (!next_file(sseq, &err)) {
+	  g_warning("Sequence failed: %s", err->message);
+	  g_error_free(err);
+	}
+      }
+    }
+    break;
+  case GST_MESSAGE_STATE_CHANGED:
+    {
+      GstState new_state;
+      gst_message_parse_state_changed(msg, NULL, &new_state, NULL);
+      g_debug("New state %s for %s", gst_element_state_get_name (new_state), GST_MESSAGE_SRC_NAME(msg));
+    }
+    break;
+  case GST_MESSAGE_SEGMENT_START:
+    {
+      GstFormat format = GST_FORMAT_TIME;
+      gint64 pos;
+      gst_message_parse_segment_start(msg, &format, &pos);
+    }
+    break;
+  case GST_MESSAGE_STREAM_STATUS:
+    {
+      GstStreamStatusType type;
+      GstElement *owner;
+      gst_message_parse_stream_status (msg, &type, &owner);
+      g_debug("Status %d from %s", type , GST_ELEMENT_NAME(owner));
+    }
+    break;
   default:
     break;
   }
@@ -159,227 +324,189 @@ bus_call (GstBus     *bus,
   return TRUE;
 }
 
-static GstElement *
-create_silence_source(GstClockTime start, GstClockTime end, GError **err)
+static gboolean
+create_pipeline(SaveSequence *sseq, GError **err)
 {
-  GstBin *bin;
-  GstElement *silence;
-  GstElement *caps_filter;
-  GstElement *default_src;
-  GstCaps *caps;
+  GstBus *bus;
+  GstElement *wavparse;
+  GstElement *wavenc;
+  GstElement *filesink;
   GstPad *ghost_pad;
+  GstCaps *caps;
+  GstElement *caps_filter;
   
-  bin = (GstBin*)gst_bin_new("silence_bin");
-  silence = gst_element_factory_make ("audiotestsrc", "silence");
-  if (!silence) {
+  sseq->pipeline = gst_pipeline_new ("pipeline");
+  bus = gst_pipeline_get_bus (GST_PIPELINE (sseq->pipeline));
+  gst_bus_add_watch (bus, bus_call, sseq);
+  gst_object_unref (bus);
+
+  
+  sseq->file_src_bin = gst_bin_new("filesrc_bin");
+  if (!sseq->file_src_bin) {
     g_set_error(err, SAVE_SEQUENCE_ERROR,
 		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
-		"Failed to silence");
-    g_object_unref(bin);
-    return NULL;
+		"Failed to create file source bin");
+    return FALSE;
   }
-  g_object_set(silence, "wave", 4, /* silence */
-	       NULL);
-  gst_bin_add(bin, silence);
+  ghost_pad = gst_ghost_pad_new_no_target ("src", GST_PAD_SRC);
+  gst_element_add_pad(sseq->file_src_bin, ghost_pad);
+  
+  sseq->file_src = gst_element_factory_make ("giosrc", "filesrc");
+  if (!sseq->file_src) {
+    g_set_error(err, SAVE_SEQUENCE_ERROR,
+		  SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to create file source");
+    return FALSE;
+  }
+  gst_bin_add(GST_BIN(sseq->file_src_bin), sseq->file_src);
+  
+  wavparse = gst_element_factory_make ("wavparse", "wavdec");
+  if (!wavparse) {
+    g_set_error(err, SAVE_SEQUENCE_ERROR,
+		  SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to create WAV decoder");
+    return FALSE;
+  }
+  gst_bin_add(GST_BIN(sseq->file_src_bin), wavparse);
 
+  g_signal_connect(wavparse, "pad-added", G_CALLBACK(set_ghost_target), ghost_pad);
+
+  gst_element_set_locked_state(sseq->file_src_bin, TRUE);
+  gst_bin_add(GST_BIN(sseq->pipeline), sseq->file_src_bin);
+ 
+  
+  sseq->silence_src = gst_element_factory_make ("audiotestsrc", "silence");
+  if (!sseq->silence_src) {
+    g_set_error(err, SAVE_SEQUENCE_ERROR,
+		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to create silence");
+    return FALSE;
+  }
+
+  g_object_set(sseq->silence_src, "wave", 4, NULL);
+  gst_element_set_locked_state(sseq->silence_src, TRUE);
+  gst_bin_add(GST_BIN(sseq->pipeline), sseq->silence_src);
+  
+
+  
   caps_filter = gst_element_factory_make ("capsfilter", "silence_capsfilter");
   if (!caps_filter) {
     g_set_error(err, SAVE_SEQUENCE_ERROR,
 		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
 		"Failed to create caps filter");
-    g_object_unref(bin);
-    return NULL;
+    return FALSE;
   }
   
-  
   caps = gst_caps_new_simple("audio/x-raw-int",
-			     "rate", G_TYPE_INT, 48000,
+			     "rate", G_TYPE_INT, SAMPLE_RATE,
 			     "depth", G_TYPE_INT, 16,
 			     "channels", G_TYPE_INT, 1,
 			     NULL);
   g_object_set(caps_filter, "caps", caps, NULL);
   gst_caps_unref(caps);
-  gst_bin_add(bin, caps_filter);
-  
-  if (!gst_element_link(silence, caps_filter)) {
-    g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_LINK_FAILED,
-		"Failed to link silence source with casp filter");
-    g_object_unref(bin);
-    return NULL;
+  gst_bin_add(GST_BIN(sseq->pipeline), caps_filter);
+
+  {
+    GstPad *pad;
+    pad = gst_element_get_static_pad(caps_filter, "sink");
+
+    buffer_counter = buffer_counter_add(pad);
   }
-  ghost_pad = gst_ghost_pad_new("src",
-				gst_element_get_static_pad(caps_filter, "src"));
-  gst_element_add_pad(GST_ELEMENT(bin), ghost_pad);
-  
-  default_src = gst_element_factory_make ("gnlsource", "default");
-  if (!default_src) {
-    g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
-		"Failed to defult source");
-    g_object_unref(bin);
-    return NULL;
-  }
-  
-  g_object_set(default_src, "priority", 10,
-	       "media-start", (GstClockTime)0,
-	       "start", start,
-	       "duration", end-start,
-	       NULL);
-  gst_bin_add(GST_BIN(default_src), GST_ELEMENT(bin));
-  return default_src;
-}
-static GstElement *
-build_pipeline(GstElement *src, GFile *file, GError **err)
-{
-  GstBus *bus;
-  GstElement *pipeline;
-  GstElement *caps_filter;
-  GstCaps *caps;
-  GstElement *wavenc;
-  GstElement *filesink;
-  GstPad *first_sink;
-
-  pipeline = gst_pipeline_new ("pipeline");
-  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-  gst_bus_add_watch (bus, bus_call, NULL);
-  gst_object_unref (bus);
-
-  gst_bin_add(GST_BIN(pipeline), src);
-
-  /* Caps filter */
-
-  caps_filter = gst_element_factory_make ("capsfilter", "capsfilter");
-  if (!caps_filter) {
-    g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
-		"Failed to create caps filter");
-    g_object_unref(pipeline);
-    return NULL;
-  }
-  caps = gst_caps_new_simple("audio/x-raw-int",
-			     "rate", G_TYPE_INT, 48000,
-			     "depth", G_TYPE_INT, 16,
-			     "channels", G_TYPE_INT, 1,
-			     NULL);
-  g_object_set(caps_filter, "caps", caps, NULL);
-  gst_caps_unref(caps);
-  gst_bin_add(GST_BIN(pipeline), caps_filter);
-  
-  /* WAV encoder */
-  wavenc = gst_element_factory_make ("wavenc", "wav");
+  wavenc = gst_element_factory_make ("wavenc", "wavenc");
   if (!wavenc) {
     g_set_error(err, SAVE_SEQUENCE_ERROR,
 		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
 		"Failed to create WAV encoder");
-    g_object_unref(pipeline);
-    return NULL;
+    return FALSE;
   }
-  gst_bin_add(GST_BIN(pipeline), wavenc);
-
-  /* File sink */
-  filesink = gst_element_factory_make ("giosink", "file");
+  gst_bin_add(GST_BIN(sseq->pipeline), wavenc);
+  sseq->output_element = caps_filter;
+  
+  filesink = gst_element_factory_make ("giosink", "filesink");
   if (!filesink) {
     g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		  SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
 		"Failed to create file sink");
-    g_object_unref(pipeline);
-    return NULL;
+    return FALSE;
   }
-  gst_bin_add(GST_BIN(pipeline), filesink);
-  g_object_set(filesink, "file", file, "sync", FALSE, NULL);
+  
+  gst_bin_add(GST_BIN(sseq->pipeline), filesink);
 
+  if (!gst_element_link_many(sseq->file_src, wavparse, NULL)) {
+    g_set_error(err, SAVE_SEQUENCE_ERROR,
+		  SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to link source bin");
+    return FALSE;
+  }
   
   if (!gst_element_link_many(caps_filter, wavenc, filesink, NULL)) {
     g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_LINK_FAILED,
-		"Failed to link encoder and filesink");
-    g_object_unref(pipeline);
-    return NULL;
+		  SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to link pipeline (last part)");
+    return FALSE;
   }
-
-  first_sink = gst_element_get_static_pad(caps_filter, "sink");
-  g_signal_connect_data(src, "pad-added", G_CALLBACK(pad_added), first_sink,
-			(GClosureNotify)g_object_unref, 0);
-  return pipeline;
+  
+  return TRUE;
 }
-      
+
+static void
+save_sequence_init(SaveSequence *instance)
+{
+  instance->working_directory = NULL;
+  instance->subtitle_store = NULL;
+  instance->pipeline = NULL;
+
+  instance->active_src = NULL;
+  
+}
+
+SaveSequence *
+save_sequence_new(GError **error)
+{
+  SaveSequence *sseq = g_object_new(SAVE_SEQUENCE_TYPE, NULL);
+  return sseq;
+}
+
 gboolean
-save_sequence(SubtitleStore *subtitles, GFile *working_directory,
+save_sequence(SaveSequence *sseq, GFile *save_file, 
+	      SubtitleStore *subtitles, GFile *working_directory,
 	      GstClockTime start, GstClockTime end,
 	      GError **err)
 {
-  gboolean ret;
-  GstElement *pipeline;
-  GstElement *default_src;
-  SequenceBuildContext ctxt;
-  GFile *out_file = g_file_new_for_path("/tmp/seq.wav");
-  
-  ctxt.subtitles = subtitles;
-  ctxt.start = start;
-  ctxt.end = end;
-  ctxt.working_directory = working_directory;
-  ctxt.sequence = gst_element_factory_make ("gnlcomposition", NULL);
-  if (!ctxt.sequence) {
-    g_set_error(err, SAVE_SEQUENCE_ERROR,
-		SAVE_SEQUENCE_ERROR_CREATE_ELEMENT_FAILED,
-		"Failed to create sequence composition");
-    return FALSE;
-  }
-  g_object_set(ctxt.sequence, "start", start, "duration", end -start , NULL);
-
-  {
-    GstCaps *caps;
-    caps = gst_caps_new_simple("audio/x-raw-int",
-			       "rate", G_TYPE_INT, 48000,
-			       "depth", G_TYPE_INT, 16,
-			     "channels", G_TYPE_INT, 1,
-			       NULL);
-    g_object_set(ctxt.sequence, "caps", caps, NULL);
-    gst_caps_unref(caps);
-  }
-  
-
-  default_src = create_silence_source(start, end,err);
-  if (!default_src) {
-    g_object_unref(ctxt.sequence);
-    return FALSE;
-  }
-  
-  gst_bin_add(GST_BIN(ctxt.sequence), default_src);
-  
-  
-  ret = build_sequence(&ctxt, err);
-  if (!ret) {
-    g_object_unref(ctxt.sequence);
-    return FALSE;
-  }
-  pipeline = build_pipeline(ctxt.sequence, out_file, err);
-  if (!pipeline) {
-    return FALSE;
-  }
-
-  gst_element_set_state(pipeline, GST_STATE_PLAYING);
-  while(TRUE) {
-    GstState state;
-    GstStateChangeReturn ret;
-    ret = gst_element_get_state(pipeline, &state, NULL, GST_SECOND);
-    if (ret == GST_STATE_CHANGE_FAILURE) {
-      g_set_error(err, SAVE_SEQUENCE_ERROR,
-		  SAVE_SEQUENCE_ERROR_PIPELINE,
-		  "Failed to start saving pipeline");
-      gst_element_set_state(pipeline, GST_STATE_NULL);
-      g_object_unref(pipeline);
+  GstElement *file_sink;
+  sseq->depth = 0;
+  stop_pipeline(sseq);
+  if (!sseq->pipeline) {
+    if (!create_pipeline(sseq, err)) {
       return FALSE;
-    } else if (ret == GST_STATE_CHANGE_SUCCESS
-	       && state == GST_STATE_PLAYING) {
-      break;
     }
   }
-#if 0
-  gst_element_set_state(pipeline, GST_STATE_NULL);
-  g_object_unref(pipeline);
-#endif
+  if (!sseq->blocked_seek) {
+    sseq->blocked_seek = blocked_seek_new();
+  }
+  
+  sseq->subtitle_store = subtitles;
+  g_object_ref(subtitles);
+  sseq->working_directory = working_directory;
+  g_object_ref(working_directory);
+  
+  file_sink = gst_bin_get_by_name(GST_BIN(sseq->pipeline), "filesink");
+  g_assert(file_sink);
+  g_object_set(file_sink, "file", save_file, NULL);
+  g_object_unref(file_sink);
+
+  sseq->next_time = 0;
+  sseq->end_time = end;
+  sseq->last_pos = FALSE;
+  if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(sseq->subtitle_store),
+				    &sseq->next_pos)) {
+    if (find_valid_subtitle(sseq)) {
+      if (!next_file(sseq, err)) {
+	return FALSE;
+      }
+      gst_element_set_state(sseq->pipeline, GST_STATE_PLAYING);
+    }
+  }
   return TRUE;
 }
- 
+
