@@ -53,8 +53,8 @@ struct _SaveSequence
   BlockedSeek *blocked_seek;
 
   GtkTreeIter next_pos;
-  GstClockTime next_time;
-  GstClockTime end_time;
+  guint64 next_sample; /* Sample offset */
+  guint64 end_sample;
   gboolean last_pos;
   guint depth;
 };

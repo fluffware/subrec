@@ -113,6 +113,7 @@ blocked_seek_destroy(BlockedSeek *bs)
 
 gboolean
 blocked_seek_start(BlockedSeek *bs, GstElement *element, GstPad *pad,
+		   GstFormat format,
 		   GstSeekFlags seek_flags,
 		   GstSeekType start_type, GstClockTime start,
 		   GstSeekType stop_type, GstClockTime stop)
@@ -129,7 +130,7 @@ blocked_seek_start(BlockedSeek *bs, GstElement *element, GstPad *pad,
     gst_event_unref(bs->seek_event);
   }
   bs->seek_event = gst_event_new_seek(1.0,
-				      GST_FORMAT_TIME,
+				      format,
 				      seek_flags,
 				      start_type, start,
 				      stop_type, stop);

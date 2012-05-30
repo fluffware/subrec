@@ -141,6 +141,12 @@ find_valid_subtitle(SaveSequence *sseq)
   }
 }
 
+static inline guint64
+ns_to_sample(GstClockTime ns)
+{
+  return (ns * SAMPLE_RATE + GST_SECOND/2) / GST_SECOND; 
+}
+
 static BufferCounter *buffer_counter = NULL;
 
 static gboolean
@@ -150,8 +156,8 @@ next_file(SaveSequence *sseq, GError **err)
   GstState state;
   GstState pending;
   GstPad *input_src_pad;
-  GstClockTime in;
-  GstClockTimeDiff duration;
+  guint64 duration;
+      
   if (sseq->active_src) {
     gst_element_set_state(sseq->active_src, GST_STATE_PAUSED);
     gst_element_get_state(sseq->active_src, &state, &pending, GST_CLOCK_TIME_NONE);
@@ -162,29 +168,33 @@ next_file(SaveSequence *sseq, GError **err)
   {
     
     g_debug("Stream pos: %lld, %lld samples", buffer_counter->duration, buffer_counter->bytes / 2);
-    g_debug("Current pos: %lld ns, %lld samples", sseq->next_time,
-	    sseq->next_time * SAMPLE_RATE / GST_SECOND);
+    g_debug("Current pos: %lld samples", sseq->next_sample);
 
   }
   if (sseq->last_pos) {
-    if (sseq->next_time > sseq->end_time) {
+    if (sseq->next_sample > sseq->end_sample) {
       g_set_error(err, SAVE_SEQUENCE_ERROR,
 		  SAVE_SEQUENCE_ERROR_INVALID_SEQUENCE,
 		  "End position less than current position");
       return FALSE;
     }
     sseq->active_src = sseq->silence_src;
-    duration = sseq->end_time - sseq->next_time;
+    duration = sseq->end_sample- sseq->next_sample;
   } else {
+    GstClockTime in_ns;
+    GstClockTimeDiff duration_ns;
+    guint64 in;
     gtk_tree_model_get(GTK_TREE_MODEL(sseq->subtitle_store), &sseq->next_pos,
-		       SUBTITLE_STORE_COLUMN_GLOBAL_IN, &in,
-		       SUBTITLE_STORE_COLUMN_FILE_DURATION, &duration,
+		       SUBTITLE_STORE_COLUMN_GLOBAL_IN, &in_ns,
+		       SUBTITLE_STORE_COLUMN_FILE_DURATION, &duration_ns,
 		       -1);
+    in = ns_to_sample(in_ns);
+    duration = ns_to_sample(duration_ns);
     
-    if (in > sseq->next_time) {
+    if (in > sseq->next_sample) {
       sseq->active_src = sseq->silence_src;
-      duration = in - sseq->next_time;
-    } else if (in == sseq->next_time) {
+      duration = in - sseq->next_sample;
+    } else if (in == sseq->next_sample) {
       const gchar *filename;
       GFile *file;
       sseq->active_src = sseq->file_src_bin;
@@ -205,23 +215,23 @@ next_file(SaveSequence *sseq, GError **err)
     }
   }
 
-  /* Round to an even number of samples */
   g_debug("Duration: %lld", duration);
-  duration = (((duration * SAMPLE_RATE + GST_SECOND/2) / GST_SECOND) * GST_SECOND) /SAMPLE_RATE;
-  g_debug("Duration (rounded): %lld", duration);
   input_src_pad = gst_element_get_static_pad(sseq->active_src, "src");
   seek_flags = GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH;
   
   /* Use segmented seek unless it's the last file in the sequence */
-  if (sseq->next_time + duration < sseq->end_time) {
+  if (sseq->next_sample + duration != sseq->end_sample) {
     seek_flags |= GST_SEEK_FLAG_SEGMENT;
   }
+
+  
   blocked_seek_start(sseq->blocked_seek, sseq->active_src, input_src_pad,
+		     GST_FORMAT_DEFAULT,
 		     seek_flags,
 		     GST_SEEK_TYPE_SET, 0,
 		     GST_SEEK_TYPE_SET, duration);
   g_object_unref(input_src_pad);
-  sseq->next_time += duration;
+  sseq->next_sample += duration;
   gst_element_link(sseq->active_src, sseq->output_element);
 
 
@@ -284,7 +294,7 @@ bus_call (GstBus     *bus,
       GstFormat format;
       gint64 pos;
       gst_message_parse_segment_done(msg, &format, &pos);
-      g_debug("Segment done %lld", pos);
+      g_debug("Segment done %lld (%lld samples)", pos, ns_to_sample(pos));
       {
 	GError *err = NULL;
 	if (!next_file(sseq, &err)) {
@@ -495,8 +505,8 @@ save_sequence(SaveSequence *sseq, GFile *save_file,
   g_object_set(file_sink, "file", save_file, NULL);
   g_object_unref(file_sink);
 
-  sseq->next_time = 0;
-  sseq->end_time = end;
+  sseq->next_sample = 0;
+  sseq->end_sample = ns_to_sample(end);
   sseq->last_pos = FALSE;
   if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(sseq->subtitle_store),
 				    &sseq->next_pos)) {

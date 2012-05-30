@@ -92,11 +92,12 @@ next_file(SequenceContext *ctxt, GError **err)
     
     input_src_pad = gst_element_get_static_pad(ctxt->active_src, "src");
     seek_flags = GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH|GST_SEEK_FLAG_SEGMENT;
-  blocked_seek_start(ctxt->blocked_seek, ctxt->active_src, input_src_pad,
-		     seek_flags,
-		     GST_SEEK_TYPE_SET, 0,
-		     GST_SEEK_TYPE_SET, GST_SECOND);
-  g_object_unref(input_src_pad);
+    blocked_seek_start(ctxt->blocked_seek, ctxt->active_src, input_src_pad,
+		       GST_FORMAT_TIME,
+		       seek_flags,
+		       GST_SEEK_TYPE_SET, 0,
+		       GST_SEEK_TYPE_SET, GST_SECOND);
+    g_object_unref(input_src_pad);
   } else {
     ctxt->active_src = ctxt->file_src_bin;
 
@@ -110,7 +111,8 @@ next_file(SequenceContext *ctxt, GError **err)
     seek_flags |= GST_SEEK_FLAG_SEGMENT;
     }
     blocked_seek_start(ctxt->blocked_seek, ctxt->active_src, input_src_pad,
-		     seek_flags,
+		       GST_FORMAT_TIME,
+		       seek_flags,
 		       GST_SEEK_TYPE_SET, 0,
 		       GST_SEEK_TYPE_END, 0);
     g_object_unref(input_src_pad);

@@ -160,9 +160,9 @@ audio_rms_power_base_init (gpointer gclass)
 
   gst_element_class_set_details_simple(element_class,
 				       "RMS power measurement",
-				       "RMS power measurement",
+				       "Filter/Analyzer/Audio",
 				       "Calculate RMS power for an audio stream",
-				       "Simon Berg ksb@users.sourceforge.net");
+				       "Simon Berg <ksb@users.sourceforge.net>");
   
   gst_element_class_add_pad_template(element_class,
 				     gst_static_pad_template_get(&sink_factory));
@@ -733,7 +733,7 @@ audio_rms_power_analyze(GstBaseTransform *trans, GstBuffer *buf)
   filter->square_acc = acc;
   return GST_FLOW_OK;
 }
-static gboolean
+gboolean
 audio_rms_power_plugin_init (GstPlugin *plugin)
 {
   /* g_debug("audio_rms_power_plugin_init"); */
@@ -744,6 +744,7 @@ audio_rms_power_plugin_init (GstPlugin *plugin)
 			       GST_TYPE_AUDIO_RMS_POWER);
 }
 
+#if 0
 /* PACKAGE: this is usually set by autotools depending on some _INIT macro
  * in configure.ac and then written into and defined in config.h, but we can
  * just set it ourselves here in case someone doesn't use autotools to
@@ -767,3 +768,4 @@ GST_PLUGIN_DEFINE (
     "subrec",
     "http://gstreamer.net/"
 )
+#endif

@@ -10,7 +10,7 @@ INCLUDES= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPP
 
 AM_CFLAGS="-std=c99"
 
-bin_PROGRAMS = subrec sequence_test
+bin_PROGRAMS = subrec sequence_test segment_test
 
 subrec_SOURCES = main.c  builderutils.c \
 about_dialog.c about_dialog.h \
@@ -34,6 +34,9 @@ subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
 
 sequence_test_SOURCES = sequence_test.c blocked_seek.c blocked_seek.h
 sequence_test_LDADD = @GLIB_LIBS@ @GST_APP_LIBS@
+
+segment_test_SOURCES = segment_test.c 
+segment_test_LDADD = @GLIB_LIBS@ @GST_APP_LIBS@
 
 images = green_lamp_active.png green_lamp_normal.png \
 yellow_lamp_active.png yellow_lamp_normal.png \

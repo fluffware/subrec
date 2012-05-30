@@ -63,5 +63,8 @@ struct _AudioRmsPowerClass
 
 GType audio_rms_power_get_type (void);
 
+gboolean
+audio_rms_power_plugin_init (GstPlugin *plugin);
+
 G_END_DECLS
 
