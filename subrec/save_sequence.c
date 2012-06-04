@@ -1,6 +1,5 @@
 #include "save_sequence.h"
 #include <time_string.h>
-#include <buffer_counter.h>
 
 #define SAMPLE_RATE 48000
 
@@ -20,6 +19,25 @@ enum {
   PROP_SUBTITLE_STORE,
   PROP_LAST
 };
+
+enum {
+  RUN_ERROR,
+  DONE,
+  LAST_SIGNAL
+};
+
+static guint save_sequence_signals[LAST_SIGNAL] = {0 };
+
+static void
+save_sequence_run_error(SaveSequence *sseq, GError *error,
+			gpointer user_data)
+{
+}
+
+static void
+save_sequence_done(SaveSequence *sseq, gpointer user_data)
+{
+}
 
 static void
 save_sequence_finalize(GObject *object)
@@ -88,7 +106,25 @@ save_sequence_class_init(SaveSequenceClass *g_class)
   gobject_class->finalize = save_sequence_finalize;
   gobject_class->get_property = save_sequence_get_property;
   gobject_class->set_property = save_sequence_set_property;
-
+  
+  g_class->run_error = save_sequence_run_error;
+  g_class->done = save_sequence_done;
+  
+  save_sequence_signals[RUN_ERROR] =
+    g_signal_new("run-error",
+		 G_OBJECT_CLASS_TYPE (g_class), G_SIGNAL_RUN_LAST,
+		 G_STRUCT_OFFSET(SaveSequenceClass, run_error),
+		 NULL, NULL,
+		 g_cclosure_marshal_VOID__POINTER,
+		 G_TYPE_NONE, 1, G_TYPE_POINTER);
+  save_sequence_signals[DONE] =
+    g_signal_new("done",
+		 G_OBJECT_CLASS_TYPE (g_class), G_SIGNAL_RUN_LAST,
+		 G_STRUCT_OFFSET(SaveSequenceClass, done),
+		 NULL, NULL,
+		 g_cclosure_marshal_VOID__VOID,
+		 G_TYPE_NONE, 0);
+  
   pspec = g_param_spec_object ("work-dir",
                                "wd",
                                "Directory where audio files are found",
@@ -144,10 +180,8 @@ find_valid_subtitle(SaveSequence *sseq)
 static inline guint64
 ns_to_sample(GstClockTime ns)
 {
-  return (ns * SAMPLE_RATE + GST_SECOND/2) / GST_SECOND; 
+  return gst_util_uint64_scale_int_round(ns,SAMPLE_RATE, GST_SECOND); 
 }
-
-static BufferCounter *buffer_counter = NULL;
 
 static gboolean
 next_file(SaveSequence *sseq, GError **err)
@@ -165,12 +199,7 @@ next_file(SaveSequence *sseq, GError **err)
     gst_element_set_state(sseq->active_src, GST_STATE_READY);
     gst_element_get_state(sseq->active_src, &state, &pending, GST_CLOCK_TIME_NONE);
   }
-  {
-    
-    g_debug("Stream pos: %lld, %lld samples", buffer_counter->duration, buffer_counter->bytes / 2);
-    g_debug("Current pos: %lld samples", sseq->next_sample);
 
-  }
   if (sseq->last_pos) {
     if (sseq->next_sample > sseq->end_sample) {
       g_set_error(err, SAVE_SEQUENCE_ERROR,
@@ -273,13 +302,14 @@ bus_call (GstBus     *bus,
   case GST_MESSAGE_EOS:
     g_debug ("End-of-stream");
     stop_pipeline(sseq);
+    g_signal_emit(sseq, save_sequence_signals[DONE], 0);
     return TRUE;
   case GST_MESSAGE_ERROR: {
     GError *err = NULL;
     gchar *debug = NULL;
  
     gst_message_parse_error (msg, &err, &debug);
-    g_warning("Pipeline: %s", err->message);
+    g_signal_emit(sseq, save_sequence_signals[RUN_ERROR], 0, err);
     g_error_free (err);
     
     if (debug) {
@@ -331,6 +361,14 @@ bus_call (GstBus     *bus,
   }
 
 
+  return TRUE;
+}
+
+static gboolean
+sample_counter_cb(GstPad *pad, GstBuffer *buffer, SaveSequence *sseq)
+{
+  sseq->current_sample +=
+    GST_BUFFER_OFFSET_END(buffer) - GST_BUFFER_OFFSET(buffer);
   return TRUE;
 }
 
@@ -419,8 +457,9 @@ create_pipeline(SaveSequence *sseq, GError **err)
   {
     GstPad *pad;
     pad = gst_element_get_static_pad(caps_filter, "sink");
-
-    buffer_counter = buffer_counter_add(pad);
+    gst_pad_add_buffer_probe_full (pad, G_CALLBACK(sample_counter_cb), sseq,
+				   NULL);
+    gst_object_unref(pad);
   }
   wavenc = gst_element_factory_make ("wavenc", "wavenc");
   if (!wavenc) {
@@ -430,6 +469,7 @@ create_pipeline(SaveSequence *sseq, GError **err)
     return FALSE;
   }
   gst_bin_add(GST_BIN(sseq->pipeline), wavenc);
+  
   sseq->output_element = caps_filter;
   
   filesink = gst_element_factory_make ("giosink", "filesink");
@@ -507,6 +547,8 @@ save_sequence(SaveSequence *sseq, GFile *save_file,
 
   sseq->next_sample = 0;
   sseq->end_sample = ns_to_sample(end);
+  sseq->start_sample = ns_to_sample(start);
+  sseq->current_sample = sseq->start_sample;
   sseq->last_pos = FALSE;
   if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(sseq->subtitle_store),
 				    &sseq->next_pos)) {
@@ -520,3 +562,12 @@ save_sequence(SaveSequence *sseq, GFile *save_file,
   return TRUE;
 }
 
+gdouble
+save_sequence_progress(SaveSequence *sseq)
+{
+  if (sseq->pipeline) {
+    return ((gdouble)(sseq->current_sample - sseq->start_sample)
+	    / (gdouble)(sseq->end_sample - sseq->start_sample));
+  }
+  return 0.0;
+}

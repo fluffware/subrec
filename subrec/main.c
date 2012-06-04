@@ -56,6 +56,10 @@ typedef struct
   GtkMessageDialog *error_dialog;
   GtkFileChooserDialog *load_dialog;
   GtkFileChooserDialog *working_directory_dialog;
+  GtkFileChooserDialog *save_sequence_dialog;
+  GtkDialog *save_sequence_progress;
+  GtkProgressBar *save_sequence_progress_bar;
+  guint save_sequence_progress_timer;
   GtkAction *play_action;
   GtkAction *record_action;
   GtkAction *stop_action;
@@ -90,6 +94,9 @@ app_init(AppContext *app)
   app->error_dialog = NULL;
   app->load_dialog = NULL;
   app->working_directory_dialog = NULL;
+  app->save_sequence_dialog = NULL;
+  app->save_sequence_progress = NULL;
+  app->save_sequence_progress_timer = 0;
   app->global_actions = NULL;
   app->asset_map = NULL;
   app->packing_list = NULL;
@@ -117,6 +124,10 @@ app_destroy(AppContext *app)
   if (app->record_timer != 0) {
     g_source_remove(app->record_timer);
     app->record_timer = 0;
+  }
+  if (app->save_sequence_progress_timer != 0) {
+    g_source_remove(app->save_sequence_progress_timer);
+    app->save_sequence_progress_timer = 0;
   }
   g_clear_object(&app->main_win);
   g_clear_object(&app->global_actions);
@@ -457,27 +468,77 @@ save_action_activate_cb(GtkAction *action, AppContext *app)
   save_list(app);
 }
 
-G_MODULE_EXPORT void
-export_audio_action_activate_cb(GtkAction *action, AppContext *app)
+static void
+export_dialog_destroy(GtkWidget *widget, AppContext *app)
+{
+  app->save_sequence_dialog = NULL;
+}
+
+
+void
+save_sequence_progress_dialog_response_cb(GtkDialog *dialog,
+					  gint response_id, AppContext *app)
+{
+  
+}
+
+static void
+save_sequence_progress_stop(AppContext *app)
+{
+  gtk_widget_hide(GTK_WIDGET(app->save_sequence_progress));
+  if (app->save_sequence_progress_timer != 0) {
+    g_source_remove(app->save_sequence_progress_timer);
+    app->save_sequence_progress_timer = 0;
+  }
+}
+
+
+static void
+save_sequence_run_error_cb(SaveSequence *sseq, GError *err, AppContext *app)
+{
+  save_sequence_progress_stop(app);
+  show_error_msg(app, "Save sequence error", err->message);
+}
+
+static void
+save_sequence_done_cb(SaveSequence *sseq, AppContext *app)
+{
+  save_sequence_progress_stop(app);
+}
+
+static gboolean
+save_sequence_progress_timeout(gpointer user_data) {
+  AppContext *app = user_data;
+  gdouble p = save_sequence_progress(app->save_sequence);
+  gtk_progress_bar_set_fraction(app->save_sequence_progress_bar, p);
+  return TRUE;
+}
+
+static void
+export_dialog_response(GtkDialog *dialog, gint response_id, AppContext *app)
 {
   GtkTreeIter iter;
-  if (!app->working_directory) {
-    show_error_msg(app, "No working directory set",
-		   "Select a directory using the menu");
-    return;
-  }
+  GFile *save_file;
+  GError *err = NULL;
+  GstClockTime out;
+
+  if (response_id != GTK_RESPONSE_ACCEPT) return;
   if (gtk_tree_model_get_iter_first (GTK_TREE_MODEL(app->subtitle_store),
 				     &iter)) {
-    GFile *save_file;
-    GError *err = NULL;
-    GstClockTime out;
     GtkTreeIter last = iter;
+    
+    save_file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+					  
     if (!app->save_sequence) {
       app->save_sequence = save_sequence_new(&err);
       if (!app->save_sequence) {
 	show_error(app, "Failed create sequence saving object", &err);
 	return;
       }
+      g_signal_connect(app->save_sequence, "run-error",
+		       G_CALLBACK(save_sequence_run_error_cb), app);
+      g_signal_connect(app->save_sequence, "done",
+		       G_CALLBACK(save_sequence_done_cb), app);
     }
     while(gtk_tree_model_iter_next(GTK_TREE_MODEL(app->subtitle_store),
 				   &iter)) {
@@ -485,7 +546,8 @@ export_audio_action_activate_cb(GtkAction *action, AppContext *app)
     }
     gtk_tree_model_get(GTK_TREE_MODEL(app->subtitle_store), &last,
 		       SUBTITLE_STORE_COLUMN_GLOBAL_OUT, &out, -1);
-    save_file = g_file_new_for_path("/home/ksb/tmp/seq.wav");
+
+    
     if (!save_sequence(app->save_sequence, save_file,
 		       app->subtitle_store, app->working_directory,
 		       0, out,
@@ -496,6 +558,40 @@ export_audio_action_activate_cb(GtkAction *action, AppContext *app)
     }
     g_object_unref(save_file);
   }
+  gtk_widget_hide(GTK_WIDGET(dialog));
+  gtk_widget_show(GTK_WIDGET(app->save_sequence_progress));
+  app->save_sequence_progress_timer =
+    g_timeout_add(100, save_sequence_progress_timeout, app);
+}
+
+G_MODULE_EXPORT void
+export_audio_action_activate_cb(GtkAction *action, AppContext *app)
+{
+  GtkTreeIter iter;
+  if (!app->working_directory) {
+    show_error_msg(app, "No working directory set",
+		   "Select a directory using the menu");
+    return;
+  }
+  if (!gtk_tree_model_get_iter_first (GTK_TREE_MODEL(app->subtitle_store),
+				      &iter)) {
+    show_error_msg(app, "Empty list", "No recordings in list");
+  }
+  if (!app->save_sequence_dialog) {
+    GtkWidget *save_dialog =
+      gtk_file_chooser_dialog_new("Export audio sequence",
+				  GTK_WINDOW(app->main_win),
+				  GTK_FILE_CHOOSER_ACTION_SAVE,
+				  GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+				GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
+				  NULL);
+    g_signal_connect(save_dialog, "response",
+		     G_CALLBACK(export_dialog_response), app);
+    g_signal_connect(save_dialog, "destroy",
+		     G_CALLBACK(export_dialog_destroy), app);
+    app->save_sequence_dialog = GTK_FILE_CHOOSER_DIALOG(save_dialog);
+  }
+  gtk_widget_show(GTK_WIDGET(app->save_sequence_dialog));
 }
 
 G_MODULE_EXPORT void
@@ -1061,12 +1157,19 @@ create_main_window(AppContext *app, GError **err)
       return FALSE;
     }
     gtk_window_add_accel_group (GTK_WINDOW (app->main_win), ag);
+
+    g_assert(app->main_win != NULL);
+    g_object_ref(app->main_win);
+    
     g_object_unref(ag);
   }
 
-  
- 
-
+  app->save_sequence_progress =
+    GTK_DIALOG(FIND_OBJECT("save_sequence_progress_dialog"));
+  g_assert(app->save_sequence_progress);
+  app->save_sequence_progress_bar =
+    GTK_PROGRESS_BAR(FIND_OBJECT("save_sequence_progress_bar"));
+  g_assert(app->save_sequence_progress_bar);
   
   gtk_builder_connect_signals(builder, app);
  

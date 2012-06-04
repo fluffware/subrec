@@ -54,7 +54,9 @@ struct _SaveSequence
 
   GtkTreeIter next_pos;
   guint64 next_sample; /* Sample offset */
+  guint64 start_sample;
   guint64 end_sample;
+  guint64 current_sample;
   gboolean last_pos;
   guint depth;
 };
@@ -64,6 +66,9 @@ struct _SaveSequenceClass
   GObjectClass parent_class;
 
   /* class members */
+  /* Signals */
+  void (*run_error)(SaveSequence *sseq, GError *error, gpointer user_data);
+  void (*done)(SaveSequence *sseq, gpointer user_data);
 };
 
 /* used by SAVE_SEQUENCE_TYPE */
@@ -86,5 +91,8 @@ save_sequence(SaveSequence *sseq, GFile *save_file,
 	      SubtitleStore *subtitles, GFile *working_directory,
 	      GstClockTime start, GstClockTime end,
 	      GError **err);
+
+gdouble
+save_sequence_progress(SaveSequence *sseq);
 
 #endif /* __SAVE_SEQUENCE_H__VM70XRUTTB__ */
