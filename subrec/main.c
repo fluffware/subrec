@@ -970,13 +970,15 @@ activate_collapse_all(GSimpleAction *action,
   gtk_tree_view_collapse_all(inst->subtitle_list_view);
 }
 
-#if 0
-G_MODULE_EXPORT void
-about_action_activate_cb(GtkAction *action, InstanceContext *inst)
+static void
+activate_about(GSimpleAction *simple,
+	       GVariant      *parameter,
+	       gpointer user_data)
 {
+  InstanceContext *inst = user_data;
   show_about_dialog(GTK_WINDOW(inst->main_win));
 }
-#endif
+
 static void
 activate_preferences(GSimpleAction *simple,
 		     GVariant      *parameter,
@@ -1132,7 +1134,8 @@ setup_actions(InstanceContext *inst, GError **err)
     { "close", activate_close, NULL},
     { "import-assetmap", activate_import_assetmap, NULL},
     { "expand-all", activate_expand_all, NULL},
-    { "collapse-all", activate_collapse_all, NULL}
+    { "collapse-all", activate_collapse_all, NULL},
+    { "about", activate_about, NULL},
     
   };
   
