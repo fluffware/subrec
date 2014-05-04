@@ -156,26 +156,22 @@ const static SettingMapping ns_to_s_mapping =
     
 static void
 add_setting(GSettings *settings, const gchar *key, const gchar *label_str,
-	    const SettingMapping *mapping, GtkTable *table, gint row)
+	    const SettingMapping *mapping, GtkGrid *table, gint row)
 {
   GtkWidget *label;
   GtkWidget *spin;
   
   label = gtk_label_new(label_str);
   gtk_misc_set_alignment(GTK_MISC(label), 1.0, 0.5);
-  gtk_table_attach (table, label,
-		    0,1, row, row + 1,
-		    GTK_FILL,
-		    0,
-		    3, 0);
+  gtk_widget_set_margin_end(GTK_WIDGET(label), 3);
+  gtk_grid_attach (table, label,
+		   0,row, 1,1);
   gtk_widget_show(label);
 
   spin = create_settings_unit_spin_box(settings, key, mapping);
-  gtk_table_attach (table, spin,
-		    1,2, row, row + 1,
-		    GTK_EXPAND | GTK_FILL,
-		    0,
-		    3, 0);
+  gtk_grid_attach (table, spin, 1,row, 1, 1);
+  gtk_widget_set_margin_end(GTK_WIDGET(spin), 3);
+  gtk_widget_set_hexpand(GTK_WIDGET(spin), TRUE);
   gtk_widget_show(spin);
 }
 
@@ -193,7 +189,7 @@ show_preferences_dialog(GtkWindow *parent)
       GTK_DIALOG(gtk_dialog_new_with_buttons ("Preferences",
 					      parent,
 					      GTK_DIALOG_DESTROY_WITH_PARENT,
-					      GTK_STOCK_OK,
+					      "_OK",
 					      GTK_RESPONSE_ACCEPT,
 					      NULL));
     g_object_ref_sink(preferences_dialog);
@@ -205,19 +201,19 @@ show_preferences_dialog(GtkWindow *parent)
 				   GTK_POLICY_AUTOMATIC);
     viewport = gtk_viewport_new(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled)),
 				gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled)));
-    table = gtk_table_new(4,2, FALSE);
+    table = gtk_grid_new();
     add_setting(settings, PREF_SILENCE_LEVEL, "Silence level",
 		&dB_mapping,
-		GTK_TABLE(table),0);
+		GTK_GRID(table),0);
     add_setting(settings, PREF_NORMAL_LEVEL, "Normal level",
 		&dB_mapping,
-		GTK_TABLE(table),1);
+		GTK_GRID(table),1);
     add_setting(settings, PREF_PRE_SILENCE, "Silence before",
 		&ns_to_s_mapping,
-		GTK_TABLE(table),2);
+		GTK_GRID(table),2);
     add_setting(settings, PREF_POST_SILENCE, "Silence after",
 		&ns_to_s_mapping,
-		GTK_TABLE(table),3);
+		GTK_GRID(table),3);
     gtk_container_add(GTK_CONTAINER(viewport), table); 
     gtk_container_add(GTK_CONTAINER(scrolled), viewport); 
     gtk_widget_show(table);
