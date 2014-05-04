@@ -1237,40 +1237,26 @@ create_main_window(InstanceContext *inst, GtkApplication *application,
   inst->green_lamp = GTK_IMAGE(FIND_OBJECT("green_lamp"));
   g_assert(inst->green_lamp);
 
-  /* { */
-  /*   GdkRGBA color; */
-  /*   color.red = 0.5; */
-  /*   color.green = 1.0; */
-  /*   color.blue = 0.5; */
-  /*   color.alpha = 1.0; */
-  /*   gtk_widget_override_background_color(GTK_WIDGET(inst->subtitle_text_view), */
-  /* 					 GTK_STATE_FLAG_ACTIVE, */
-  /* 					 &color); */
-  /*   color.red = 1.0; */
-  /*   color.green = 1.0; */
-  /*   color.blue = 0.5; */
-  /*   gtk_widget_override_background_color(GTK_WIDGET(inst->subtitle_text_view), */
-  /* 					 GTK_STATE_FLAG_INSENSITIVE, */
-  /* 					 &color); */
-  /* } */
+  {
+    GdkRGBA color;
+    color.red = 0.5;
+    color.green = 1.0;
+    color.blue = 0.5;
+    color.alpha = 1.0;
+    gtk_widget_override_background_color(GTK_WIDGET(inst->subtitle_text_view),
+  					 GTK_STATE_FLAG_ACTIVE,
+  					 &color);
+    color.red = 1.0;
+    color.green = 1.0;
+    color.blue = 0.5;
+    gtk_widget_override_background_color(GTK_WIDGET(inst->subtitle_text_view),
+  					 GTK_STATE_FLAG_INSENSITIVE,
+  					 &color);
+  }
 
-  /* { */
-  /*   GtkAccelGroup *ag = gtk_accel_group_new(); */
- 
-  /*   gtk_window_add_accel_group (GTK_WINDOW (inst->main_win), ag); */
-
-  /*   g_assert(inst->main_win != NULL); */
-  /*   g_object_ref(inst->main_win); */
-    
-  /*   g_object_unref(ag); */
-  /* } */
-
-  /* inst->save_sequence_progress = */
-  /*   GTK_DIALOG(FIND_OBJECT("save_sequence_progress_dialog")); */
-  /* g_assert(inst->save_sequence_progress); */
-  /* inst->save_sequence_progress_bar = */
-  /*   GTK_PROGRESS_BAR(FIND_OBJECT("save_sequence_progress_bar")); */
-  /* g_assert(inst->save_sequence_progress_bar); */
+  inst->save_sequence_progress =
+    GTK_DIALOG(FIND_OBJECT("save_sequence_progress_dialog"));
+  g_assert(inst->save_sequence_progress);
   
   /* gtk_builder_connect_signals(builder, inst); */
  
