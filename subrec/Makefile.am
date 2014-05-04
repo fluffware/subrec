@@ -40,7 +40,7 @@ segment_test_LDADD = @GLIB_LIBS@ @GST_APP_LIBS@
 images = green_lamp_active.png green_lamp_normal.png \
 yellow_lamp_active.png yellow_lamp_normal.png \
 red_lamp_active.png red_lamp_normal.png
-ui_DATA= ui/main_win.ui $(images:%=ui/%)
+ui_DATA= ui/main_win.ui ui/menus.ui $(images:%=ui/%)
 
 app_DATA=subrec.desktop
 
