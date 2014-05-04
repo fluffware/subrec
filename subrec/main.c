@@ -1173,23 +1173,8 @@ setup_actions(InstanceContext *inst, GError **err)
   gtk_widget_insert_action_group (GTK_WIDGET(inst->main_win), "rec",
 				  inst->record_actions);
   
-  /*
-  if (!(app->play_action = add_action(app, builder, ag, app->subtitle_actions,
-				      "play_clip", "Return",err))) {
-    return FALSE;
-  }
-  if (!(app->record_action = add_action(app, builder, ag, app->subtitle_actions,
-					"record_clip", "space",err))) {
-    return FALSE;
-  }
+  action_group_set_enable(inst->record_actions, FALSE);
 
-  app->record_actions = gtk_action_group_new("record_actions");
-  
-  if (!(app->stop_action = add_action(app, builder, ag, app->record_actions,
-				      "stop_clip", "space",err))) {
-    return FALSE;
-    }
-  */
   return TRUE;
 }
 
@@ -1351,70 +1336,13 @@ print_widget_tree(GtkWidget *widget, guint indent)
 }
 #endif
 
-static gchar *work_dir = NULL;
 
 static GOptionEntry options[] =
   {
-    {"working-directory", 'w',
-     0,
-     G_OPTION_ARG_FILENAME,
-     &work_dir,
-     "Working directory",
-   NULL
-    },
+   
     {NULL}
   };
 
-#if 0
-int
-main(int argc, char **argv)
-{
-  GOptionContext *oc;
-  GError *error = NULL;
-  AppContext app;
-  LIBXML_TEST_VERSION;
-  g_thread_init(NULL);
-  app_init(&app);
-  oc = g_option_context_new(" - Record subtitles");
-  g_option_context_add_group (oc, gtk_get_option_group (TRUE));
-  g_option_context_add_group (oc, gst_init_get_option_group ());
-  g_option_context_add_main_entries (oc, options, NULL);
-  if (!g_option_context_parse (oc, &argc, &argv, &error)) {
-    g_warning("Failed to parse options: %s", error->message);
-    return EXIT_FAILURE;
-  }
-  g_option_context_free (oc);
-  app.settings = g_settings_new(PREF_SCHEMA);
-  g_assert(app.settings);
-  if (!setup_recorder(&app, &error)) {
-    app_destroy(&app);
-    g_error("%s", error->message);
-  }
-  app.application = gtk_application_new("se.fluffware.subrec",
-					(G_APPLICATION_HANDLES_COMMAND_LINE
-					 | G_APPLICATION_NON_UNIQUE));
-  if (!create_main_window(&app, &error)) {
-    app_destroy(&app);
-    g_error("%s", error->message);
-  }
-  if (work_dir) {
-    GFile *file = g_file_new_for_path(work_dir);
-    if (!set_working_directory(&app, file, &error)) {
-      show_error(&app, "Failed to set working directory", &error);
-    }
-    g_object_unref(file);
-  }
-#if USE_STYLE
-  print_widget_tree(app.main_win, 0);
-  setup_style(&app);
-#endif
-  gtk_widget_show(app.main_win);
-  gtk_main();
-  g_debug("Exiting");
-  app_destroy(&app);
-  return EXIT_SUCCESS;
-}
-#endif
 
 static void
 startup(GApplication *application, AppContext *app_ctxt)

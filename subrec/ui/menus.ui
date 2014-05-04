@@ -20,35 +20,55 @@
   <menu id="winmenu">
     <submenu id="listmenu">
       <attribute name="label" translatable="yes">_List</attribute>
-      <item>
-	<attribute name="label" translatable="yes">_Save</attribute>
-	<attribute name="action">win.save</attribute>
-	<attribute name="accel">&lt;Control&gt;s</attribute>
-      </item>
-      <item>
-	<attribute name="label" translatable="yes">_Close</attribute>
-	<attribute name="action">win.close</attribute>
-	<attribute name="accel">&lt;Control&gt;w</attribute>
-      </item>
-      
-      <item>
+      <section>
+	<item>
+	  <attribute name="label" translatable="yes">_Save</attribute>
+	  <attribute name="action">win.save</attribute>
+	  <attribute name="accel">&lt;Control&gt;s</attribute>
+	</item>
+	<item>
+	  <attribute name="label" translatable="yes">_Close</attribute>
+	  <attribute name="action">win.close</attribute>
+	  <attribute name="accel">&lt;Control&gt;w</attribute>
+	</item>
+	
+	<item>
 	<attribute name="label" translatable="yes">_Import ASSETMAP</attribute>
 	<attribute name="action">win.import-assetmap</attribute>
 	<attribute name="accel">&lt;Control&gt;i</attribute>
-      </item>
-      <item>
-	<attribute name="label" translatable="yes">_Expand All</attribute>
-	<attribute name="action">win.expand-all</attribute>
+	</item>
+      </section>
+      <section>
+	<item>
+	  <attribute name="label" translatable="yes">_Expand All</attribute>
+	  <attribute name="action">win.expand-all</attribute>
 	<attribute name="accel">&lt;Control&gt;e</attribute>
-      </item>
-      
-      <item>
-	<attribute name="label" translatable="yes">_Collapse All</attribute>
-	<attribute name="action">win.collapse-all</attribute>
+	</item>
+	
+	<item>
+	  <attribute name="label" translatable="yes">_Collapse All</attribute>
+	  <attribute name="action">win.collapse-all</attribute>
 	<attribute name="accel">&lt;Control&gt;&lt;Shift&gt;e</attribute>
-      </item>
-      
-    
+	</item>
+      </section>
+      <section>
+	<item>
+	  <attribute name="label" translatable="yes">_Play</attribute>
+	  <attribute name="action">sub.play</attribute>
+	  <attribute name="accel">Return</attribute>
+	</item>
+	<item>
+	  <attribute name="label" translatable="yes">_Record</attribute>
+	  <attribute name="action">sub.record</attribute>
+	  <attribute name="accel">space</attribute>
+	</item>
+	
+	<item>
+	  <attribute name="label" translatable="yes">_Stop</attribute>
+	  <attribute name="action">rec.stop</attribute>
+	<attribute name="accel">space</attribute>
+	</item>
+      </section>
     </submenu>
     <submenu id="helpmenu">
       <attribute name="label" translatable="yes">_Help</attribute>
