@@ -6,7 +6,7 @@ app48x48dir=$(themedir)/48x48/apps
 app32x32dir=$(themedir)/32x32/apps
 app22x22dir=$(themedir)/22x22/apps
 
-INCLUDES= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPPFLAGS@
+AM_CPPFLAGS= -I @builddir@ -I. @GTK_CFLAGS@ @GLIB_CFLAGS@ @GST_APP_CFLAGS@ @XML_CPPFLAGS@
 
 AM_CFLAGS="-std=c99"
 
@@ -29,7 +29,7 @@ unitspinbutton.c unitspinbutton.h \
 blocked_seek.c blocked_seek.h \
 save_sequence.c save_sequence.h
 
-subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@
+subrec_LDADD = @GTK_LIBS@ @GLIB_LIBS@ @XML_LIBS@ @GST_APP_LIBS@ -lm
 
 sequence_test_SOURCES = sequence_test.c blocked_seek.c blocked_seek.h
 sequence_test_LDADD = @GLIB_LIBS@ @GST_APP_LIBS@

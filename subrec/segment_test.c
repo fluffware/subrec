@@ -1,5 +1,6 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
+#include <stdlib.h>
 
 #define SEGMENT_TEST_ERROR (sequence_test_error_quark())
 enum {
@@ -88,6 +89,7 @@ create_pipeline(GError **err)
   GstElement *sine_src;
   GstElement *wavenc;
   GstElement *filesink;
+  GstCaps *channel_caps;
   
   pipeline = gst_pipeline_new ("pipeline");
   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
@@ -125,15 +127,22 @@ create_pipeline(GError **err)
   }
   
   gst_bin_add(GST_BIN(pipeline), filesink);
-
-  if (!gst_element_link_many(sine_src, wavenc, filesink, NULL)) {
+  channel_caps = gst_caps_new_simple("audio/x-raw", "channels",G_TYPE_INT, 2, NULL);
+  if (!gst_element_link_pads_filtered(sine_src,NULL, wavenc, NULL, channel_caps)) {
     g_set_error(err, SEGMENT_TEST_ERROR,
 		  SEGMENT_TEST_ERROR_CREATE_ELEMENT_FAILED,
 		"Failed to link pipeline");
     g_object_unref(pipeline);
     return NULL;
   }
-  
+  if (!gst_element_link_many(wavenc, filesink, NULL)) {
+    g_set_error(err, SEGMENT_TEST_ERROR,
+		  SEGMENT_TEST_ERROR_CREATE_ELEMENT_FAILED,
+		"Failed to link pipeline");
+    g_object_unref(pipeline);
+    return NULL;
+  }
+  gst_caps_unref(channel_caps);
   return pipeline;
 }
 

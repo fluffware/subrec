@@ -17,78 +17,6 @@
       <source stock-id="subrec-yellow-lamp" state="prelight" filename="yellow_lamp_active.png"/>
     </sources>
   </object>
-  <object class="GtkAction" id="collapse_all_action">
-    <property name="label" translatable="yes">_Collapse All</property>
-    <property name="short_label" translatable="yes">Collapse</property>
-    <property name="stock_id">gtk-remove</property>
-    <signal name="activate" handler="collapse_all_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="expand_all_action">
-    <property name="label" translatable="yes">_Expand All</property>
-    <property name="short_label" translatable="yes">Expand</property>
-    <property name="stock_id">gtk-add</property>
-    <signal name="activate" handler="expand_all_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="export_audio_action">
-    <property name="label" translatable="yes">E_xport audio</property>
-    <property name="stock_id">gtk-save</property>
-    <signal name="activate" handler="export_audio_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="open_assetmap_action">
-    <property name="label" translatable="yes">_Open ASSETMAP</property>
-    <property name="stock_id">gtk-open</property>
-    <property name="icon_name">Open ASSETMAP</property>
-    <signal name="activate" handler="open_assetmap_action_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="play_clip">
-    <property name="label" translatable="yes">Play</property>
-    <property name="short_label" translatable="yes">Play</property>
-    <property name="stock_id">gtk-media-play</property>
-    <signal name="activate" handler="play_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="preferences_action">
-    <property name="label" translatable="yes">_Preferences</property>
-    <property name="short_label" translatable="yes">Prefs</property>
-    <property name="stock_id">gtk-preferences</property>
-    <signal name="activate" handler="preferences_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="save_action">
-    <property name="label" translatable="yes">_Save</property>
-    <property name="stock_id">gtk-save</property>
-    <signal name="activate" handler="save_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="set_working_directory_action">
-    <property name="label" translatable="yes">Set _working directory</property>
-    <property name="stock_id">gtk-open</property>
-    <signal name="activate" handler="set_working_directory_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="stop_clip">
-    <property name="label" translatable="yes">Stop</property>
-    <property name="short_label" translatable="yes">Stop</property>
-    <property name="stock_id">gtk-media-stop</property>
-    <signal name="activate" handler="stop_action_activate_cb" swapped="no"/>
-  </object>
-  <object class="GtkAdjustment" id="prefs_pre_silence_adjustment">
-    <property name="upper">1</property>
-    <property name="step_increment">0.01</property>
-    <property name="page_increment">0.10000000000000001</property>
-  </object>
-  <object class="GtkAdjustment" id="prefs_silence_value_adjustment">
-    <property name="lower">-90.010000000000005</property>
-    <property name="step_increment">0.10000000000000001</property>
-    <property name="page_increment">1</property>
-  </object>
-  <object class="GtkAction" id="quit_action">
-    <property name="label" translatable="yes">_Quit</property>
-    <property name="stock_id">gtk-quit</property>
-    <signal name="activate" handler="quit_action_cb" swapped="no"/>
-  </object>
-  <object class="GtkAction" id="record_clip">
-    <property name="label" translatable="yes">Record</property>
-    <property name="short_label" translatable="yes">Record</property>
-    <property name="stock_id">gtk-media-record</property>
-    <signal name="activate" handler="record_action_activate_cb" swapped="no"/>
-  </object>
   <object class="GtkDialog" id="save_sequence_progress_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
@@ -159,7 +87,7 @@
       <action-widget response="0">save_sequence_dialog_cancel_button</action-widget>
     </action-widgets>
   </object>
-  <object class="GtkWindow" id="subrec">
+  <object class="GtkApplicationWindow" id="subrec">
     <property name="can_focus">False</property>
     <property name="window_position">center</property>
     <property name="default_width">800</property>
@@ -169,163 +97,6 @@
       <object class="GtkVBox" id="winbox">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <child>
-          <object class="GtkMenuBar" id="mainmenubar">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkMenuItem" id="file_menuitem">
-                <property name="use_action_appearance">False</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_File</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="menu1">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkImageMenuItem" id="setworkdirmenuitem">
-                        <property name="related_action">set_working_directory_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="openassetmapmenuitem">
-                        <property name="related_action">open_assetmap_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="savemenuitem">
-                        <property name="related_action">save_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="exportaudiomenuitem">
-                        <property name="related_action">export_audio_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
-                        <property name="use_action_appearance">False</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="quitmenuitem">
-                        <property name="related_action">quit_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">False</property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="edit_menuitem">
-                <property name="use_action_appearance">False</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Edit</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="menu4">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkImageMenuItem" id="preferences_menuitem">
-                        <property name="related_action">preferences_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="view_menuitem">
-                <property name="use_action_appearance">False</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_View</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="menu2">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkImageMenuItem" id="expand_all_menuitem">
-                        <property name="related_action">expand_all_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_stock">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkImageMenuItem" id="collapse_all_menuitem">
-                        <property name="related_action">collapse_all_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_stock">False</property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="help_menuitem">
-                <property name="use_action_appearance">False</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Help</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="menu3">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkImageMenuItem" id="about_menuitem">
-                        <property name="related_action">about_action</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">False</property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child>
           <object class="GtkVBox" id="box3">
             <property name="visible">True</property>
@@ -400,11 +171,10 @@
                             <child>
                               <object class="GtkButton" id="play_button">
                                 <property name="label" translatable="yes">Play</property>
-                                <property name="related_action">play_clip</property>
+                                <property name="action-name">sub.play</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
-                                <property name="related_action">play_clip</property>
                                 <property name="use_underline">True</property>
                               </object>
                               <packing>
@@ -416,11 +186,10 @@
                             <child>
                               <object class="GtkButton" id="stop_button">
                                 <property name="label" translatable="yes">Stop</property>
-                                <property name="related_action">stop_clip</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
-                                <property name="related_action">stop_clip</property>
+                                <property name="action-name">rec.stop</property>
                                 <property name="use_underline">True</property>
                               </object>
                               <packing>
@@ -432,11 +201,10 @@
                             <child>
                               <object class="GtkButton" id="record_button">
                                 <property name="label" translatable="yes">Record</property>
-                                <property name="related_action">record_clip</property>
+                                <property name="action-name">sub.record</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
-                                <property name="related_action">record_clip</property>
                                 <property name="use_underline">True</property>
                               </object>
                               <packing>
@@ -545,4 +313,5 @@
     </child>
   </object>
   <object class="GtkTextBuffer" id="subtitle_text"/>
+ 
 </interface>

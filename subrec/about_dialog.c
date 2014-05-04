@@ -56,7 +56,7 @@ show_about_dialog(GtkWindow *parent)
       GTK_DIALOG(gtk_dialog_new_with_buttons ("About this program",
 					      parent,
 					      GTK_DIALOG_DESTROY_WITH_PARENT,
-					      GTK_STOCK_OK,
+					      "_OK",
 					      GTK_RESPONSE_ACCEPT,
 					      NULL));
     gtk_window_set_default_size(GTK_WINDOW(about_dialog),500,400);

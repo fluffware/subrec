@@ -60,6 +60,7 @@ destroy_items(SubtitleStoreItem *item);
 static void
 destroy_item(SubtitleStoreItem *item)
 {
+  g_free(item->id);
   g_free(item->text);
   g_free(item->filename);
   g_clear_object(&item->filelist);

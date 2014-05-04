@@ -265,7 +265,11 @@ start_adjustment(ClipRecorder *recorder)
 	       "media-duration", duration,
 	       NULL);
   g_object_unref(filesrc);
-  amplification = sqrt(TARGET_LOUDNESS / recorder->loudness);
+  if (recorder->loudness < 1e-10) {
+    amplification = 1.0;
+  } else {
+    amplification = sqrt(TARGET_LOUDNESS / recorder->loudness);
+  }
   g_debug("Amplify by %f", amplification);
   amplifier = gst_bin_get_by_name(GST_BIN(adjust), "amplify");
   g_assert(amplifier);
@@ -361,7 +365,7 @@ bus_call (GstBus     *bus,
 	}
       } else if (strcmp(name, "analysis-message") == 0) {
 	GstFormat format = GST_FORMAT_TIME;
-	GstClockTime raw_end;
+	gint64 raw_end;
 	gst_structure_get_double (msg->structure, "loudness",
 				  &recorder->loudness);
 	gst_structure_get_clock_time (msg->structure, "trim-start",

@@ -37,7 +37,14 @@ get_range(GSettings *settings, const gchar *key, gdouble *low, gdouble *high)
   GVariant *range;
   GVariant *limits;
   gchar *type_str;
-  range = g_settings_get_range(settings, key);
+  GSettingsSchema *schema = NULL;
+  GSettingsSchemaKey *schema_key;
+  g_object_get(settings, "settings-schema", &schema, NULL);
+  schema_key = g_settings_schema_get_key (schema, key);
+  g_settings_schema_unref(schema);
+  g_assert(schema_key);
+  range = g_settings_schema_key_get_range(schema_key);
+  g_settings_schema_key_unref(schema_key);
   g_variant_get(range, "(sv)", &type_str, &limits);
   if (strcmp("range", type_str) == 0) {
     GVariant *low_var;
@@ -189,6 +196,7 @@ show_preferences_dialog(GtkWindow *parent)
 					      GTK_STOCK_OK,
 					      GTK_RESPONSE_ACCEPT,
 					      NULL));
+    g_object_ref_sink(preferences_dialog);
     gtk_window_set_default_size(GTK_WINDOW(preferences_dialog),500,400);
     content = gtk_dialog_get_content_area(preferences_dialog);
     scrolled = gtk_scrolled_window_new(NULL, NULL);
@@ -226,3 +234,8 @@ show_preferences_dialog(GtkWindow *parent)
   gtk_widget_show(GTK_WIDGET(preferences_dialog));
 }
   
+void
+destroy_preferences_dialog(void)
+{
+  g_clear_object(&preferences_dialog);
+}

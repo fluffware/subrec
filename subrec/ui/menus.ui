@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <menu id="appmenu">
+    <item>
+      <attribute name="label" translatable="yes">_Open Working Directory</attribute>
+      <attribute name="action">app.open-working-directory</attribute>
+      <attribute name="accel">&lt;Control&gt;o</attribute>
+    </item>
+    <item>
+      <attribute name="label" translatable="yes">_Preferences</attribute>
+      <attribute name="action">app.preferences</attribute>
+    </item>
+    
+    <item>
+      <attribute name="label" translatable="yes">_Quit</attribute>
+      <attribute name="action">app.quit</attribute>
+      <attribute name="accel">&lt;Control&gt;q</attribute>
+    </item>
+  </menu>
+  <menu id="winmenu">
+    <submenu id="listmenu">
+      <attribute name="label" translatable="yes">_List</attribute>
+      <item>
+	<attribute name="label" translatable="yes">_Save</attribute>
+	<attribute name="action">win.save</attribute>
+	<attribute name="accel">&lt;Control&gt;s</attribute>
+      </item>
+      <item>
+	<attribute name="label" translatable="yes">_Close</attribute>
+	<attribute name="action">win.close</attribute>
+	<attribute name="accel">&lt;Control&gt;w</attribute>
+      </item>
+      
+      <item>
+	<attribute name="label" translatable="yes">_Import ASSETMAP</attribute>
+	<attribute name="action">win.import-assetmap</attribute>
+	<attribute name="accel">&lt;Control&gt;i</attribute>
+      </item>
+      <item>
+	<attribute name="label" translatable="yes">_Expand All</attribute>
+	<attribute name="action">win.expand-all</attribute>
+	<attribute name="accel">&lt;Control&gt;e</attribute>
+      </item>
+      
+      <item>
+	<attribute name="label" translatable="yes">_Collapse All</attribute>
+	<attribute name="action">win.collapse-all</attribute>
+	<attribute name="accel">&lt;Control&gt;&lt;Shift&gt;e</attribute>
+      </item>
+      
+    
+    </submenu>
+  </menu>
+</interface>
